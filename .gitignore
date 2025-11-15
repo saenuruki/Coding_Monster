@@ -205,3 +205,430 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+
+
+# ===================================
+# 🔐 機密情報・環境変数
+# ===================================
+
+# 環境変数ファイル
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+.env.staging
+
+# Firebase設定ファイル（機密情報含む）
+ios/GoogleService-Info.plist
+android/app/google-services.json
+web/firebase-config.js
+
+# RevenueCat APIキー
+revenuecat-config.json
+.revenuecat
+
+# MCP Configuration (contains API keys)
+mcp.json
+
+# Apple Developer証明書・プロビジョニングプロファイル
+ios/certs/
+ios/profiles/
+*.p12
+*.mobileprovision
+*.certSigningRequest
+
+# Android署名キー
+android/app/*.keystore
+android/app/*.jks
+android/keystore.properties
+android/key.properties
+
+# Google Play API キー
+google-play-api-key.json
+play-console-*.json
+
+# ===================================
+# 📦 依存関係・パッケージ
+# ===================================
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# パッケージマネージャーロックファイル（プロジェクトに応じて選択）
+# package-lock.json  # npmを使用する場合はコメントアウト
+# yarn.lock          # yarnを使用する場合はコメントアウト
+# pnpm-lock.yaml     # pnpmを使用する場合はコメントアウト
+
+# ===================================
+# 🏗️ ビルド成果物・キャッシュ
+# ===================================
+
+# Expo
+.expo/
+.expo-shared/
+dist/
+web-build/
+
+# React Native
+.react-native/
+
+# Metro bundler
+.metro-health-check*
+metro-cache/
+
+# Webpack
+.webpack/
+
+# ===================================
+# 📱 iOS関連
+# ===================================
+
+# Xcode
+ios/build/
+ios/Pods/
+ios/Podfile.lock
+ios/*.xcworkspace/xcuserdata/
+ios/*.xcodeproj/xcuserdata/
+ios/*.xcodeproj/project.xcworkspace/xcuserdata/
+ios/DerivedData/
+
+# iOS Simulator
+ios/build/
+*.app.dSYM.zip
+*.app.dSYM
+
+# CocoaPods
+ios/Pods/
+Podfile.lock
+
+# Fastlane
+ios/fastlane/report.xml
+ios/fastlane/Preview.html
+ios/fastlane/screenshots/
+ios/fastlane/test_output/
+
+# ===================================
+# 🤖 Android関連
+# ===================================
+
+# Android Studio
+android/.gradle/
+android/app/build/
+android/build/
+android/gradle/
+android/local.properties
+android/.idea/
+android/*.iml
+android/.externalNativeBuild/
+android/.cxx/
+
+# Android Gradle
+android/app/release/
+android/app/debug/
+android/captures/
+
+# Android Lint
+android/lint-report.html
+android/lint-report_files/
+
+# Proguard
+android/app/proguard/
+
+# ===================================
+# 🌐 Web関連
+# ===================================
+
+# Web build
+web-build/
+dist/
+build/
+
+# Service Worker
+sw.js
+workbox-*.js
+
+# PWA
+manifest.json.backup
+
+# ===================================
+# 🔥 Firebase関連
+# ===================================
+
+# Firebase
+.firebase/
+.firebaserc
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+firebase-export-*/
+
+# Firebase Functions
+functions/node_modules/
+functions/lib/
+functions/.env
+functions/.env.local
+
+# Firebase Emulator
+firebase-export-*
+firestore-debug.log
+database-debug.log
+pubsub-debug.log
+
+# ===================================
+# 🧪 テスト関連
+# ===================================
+
+# Jest
+coverage/
+.nyc_output/
+junit.xml
+
+# E2E テスト
+e2e/screenshots/
+e2e/videos/
+test-results/
+
+# Detox
+.detoxrc.json
+
+# ===================================
+# 🛠️ 開発ツール・IDE
+# ===================================
+
+# Visual Studio Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# IntelliJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# ===================================
+# 💻 OS生成ファイル
+# ===================================
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ===================================
+# 📊 ログ・デバッグファイル
+# ===================================
+
+# ログファイル
+*.log
+logs/
+*.log.*
+
+# デバッグファイル
+debug.log
+error.log
+access.log
+
+# Crash reports
+crashlytics-build.properties
+fabric.properties
+
+# ===================================
+# 🔧 設定・キャッシュファイル
+# ===================================
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+.temp/
+
+# Cache directories
+.cache/
+.parcel-cache/
+.next/
+.nuxt/
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# ===================================
+# 📈 分析・監視ツール
+# ===================================
+
+# Bundle analyzer
+bundle-report.html
+stats.json
+
+# Lighthouse reports
+lighthouse-report.html
+
+# Performance monitoring
+.perf/
+
+# ===================================
+# 🚀 デプロイ・CI/CD関連
+# ===================================
+
+# Deployment
+deploy/
+deployment/
+
+# GitHub Actions
+# .github/workflows/ は通常含める
+
+# CircleCI
+.circleci/config.yml.backup
+
+# Travis CI
+.travis.yml.backup
+
+# ===================================
+# 📚 ドキュメント生成
+# ===================================
+
+# TypeDoc
+docs/api/
+typedoc/
+
+# JSDoc
+jsdoc/
+
+# ===================================
+# 🎨 アセット処理
+# ===================================
+
+# 画像最適化
+*.orig
+optimized/
+
+# フォント生成
+fonts/generated/
+
+# ===================================
+# 🔍 その他の除外ファイル
+# ===================================
+
+# Backup files
+*.backup
+*.bak
+*.orig
+
+# Archive files
+*.zip
+*.tar.gz
+*.rar
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# ===================================
+# 📝 プロジェクト固有の除外
+# ===================================
+
+# Cuetic固有の一時ファイル
+temp-events/
+temp-uploads/
+mock-data-backup/
+
+# 開発中のスクリーンショット
+screenshots/dev/
+recordings/dev/
+
+# テスト用QRコード画像
+qr-codes/test/
+
+# 一時的なアセット
+assets/temp/
+assets/backup/
+
+# ===================================
+# ⚠️ 重要な注意事項
+# ===================================
+
+# 以下のファイルは手動で管理し、安全に共有する必要があります：
+# - Firebase設定ファイル（GoogleService-Info.plist, google-services.json）
+# - RevenueCat APIキー
+# - Apple Developer証明書
+# - Android署名キー
+# - 本番環境の環境変数
+
+# チーム開発時は、これらのファイルを安全な方法で共有してください：
+# - 暗号化されたファイル共有サービス
+# - 環境変数管理サービス（AWS Secrets Manager, Azure Key Vault等）
+# - チーム内の安全な通信チャネル
+
+# ===================================
+# 🔄 バージョン管理に含めるべきファイル
+# ===================================
+
+# 以下は通常バージョン管理に含めます：
+# !.env.example          # 環境変数のサンプル
+# !.gitignore            # このファイル
+# !README.md             # プロジェクト説明
+# !package.json          # 依存関係定義
+# !app.json              # Expo設定
+# !babel.config.js       # Babel設定
+# !metro.config.js       # Metro設定
+# !tsconfig.json         # TypeScript設定
+
+.env
+
