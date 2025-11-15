@@ -61,7 +61,7 @@ class Finances(BaseModel):
 # ------------------- Action/Event Schemas -------------------
 
 class Impact(BaseModel):
-    """Describes stat changes made by an action or event."""
+    """Describes stat changes made by an action or event - we add these on."""
     health: int = 0
     happiness: int = 0
     stress: int = 0
@@ -93,8 +93,7 @@ class Game(BaseModel):
     user_id: int
     game_id: str
     day: int = 1
-    is_over: bool = False
-    static_properties: StaticProperties
+    static_properties: StaticProperties # this is stuff like gendah and name of char
     stats: Stats
     finances: Finances
 
@@ -112,7 +111,7 @@ class GameSchema(BaseModel):
     character_name: str
     work: bool
     user_id: int
-
+    # whatever this is (suggested by gemini lol):
     class Config:
         from_attributes = True
 
@@ -134,14 +133,10 @@ class StartGameResponse(BaseModel):
 
 
 class ChoiceRequest(BaseModel):
-    """Request model for submitting a choice for an event."""
-    game_id: str
-    event_id: int
-    # The index of the option selected by the user from the event's options list.
-    choice_index: int
+    """Request model for submitting a choice's impact."""
+    impact: Impact
 
 
 class ChoiceResponse(BaseModel):
     """Response model after a choice has been applied."""
     game_state: Game
-    applied_option: EventOption

@@ -1,146 +1,178 @@
-import uuid
-import random
 from fastapi import FastAPI, HTTPException, Depends
-from typing import List
-import sqlite3
 from sqlalchemy.orm import Session
-from init_db import SessionLocal, User, Game, Day, init_db 
-from models import *
-from llm.event_generator import generate_event
+import random
+
+from . import models
+from . import init_db
+from .llm.event_generator import llm_generate_event
+
+# TODO: Add to a database or other persistent store
+games: dict[str, models.Game] = {}
 
 app = FastAPI()
-conn = sqlite3.connect("mydb.sqlite")
 
-
-games: dict[str, GameState] = {}
-
+# Dependency to get the database session
 def get_db():
-    db = SessionLocal()
+    db = init_db.SessionLocal()
     try:
         yield db
     finally:
         db.close()
 
-@app.on_event("startup")
-def on_startup():
-    init_db()
+@app.get("/")
+def read_root():
+    return {"Hello": "World"}
 
-# NEED!
-# def apply_choice(game: GameState, choice: Choice):
-#     game.health += choice.health_delta
-#     game.money += choice.money_delta
-#     game.mood += choice.mood_delta
-
-#     if game.health <= 0 or game.money < -50 or game.mood <= -20:
-#         game.is_over = True
-
-#     if not game.is_over:
-#         game.day += 1
-
-
-# def to_status(game: GameState) -> GameStatus:
-#     return Game(
-#         game_id=game_id,
-#         day=game.day,
-#         health=game.health,
-#         money=game.money,
-#         mood=game.mood,
-#         is_over=game.is_over,
-#     )
-
-def call_llm_for_start(dayNumber: int, game_id:int) -> Event:
-    return Event(game_id=game_id, event=generate_event(dayNumber))
-
-def call_llm_for_start(game_id:int) -> Event:
-    return Event(game_id=game_id, event=generate_event(1))
-    
-    
-
-@app.post("/api/game/start", response_model=StartGameResponse)
-async def start_game(body: StartGameRequest, db: Session = Depends(get_db)):
-    user = User()
-    db.add(user)
-    db.flush()
-    game = Game(
-        age=body.age,
-        gender=body.gender,
-        character_name=body.character_name,
-        work=body.work,
-        user_id=user.id,
-    )
-    db.add(game)
-    db.flush()
-    initial_day = Day(
-        game_id=game.id,
-        number_of_day=1,
-        health=random.randint(60, 90),
-        happiness=random.randint(60, 90),
-        stress=random.randint(60, 90),
-        reputation=random.randint(60, 90),
-        education=random.randint(60, 90),
-        money=400,
-        weekly_income=random.randint(60, 90),
-        weekly_expense=random.randint(60, 90),
-        free_time=10,
-    )
-    db.add(initial_day)
-
+@app.post("/game", response_model=models.StartGameResponse)
+def start_game(
+    start_req: models.StartGameRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Starts a new game, creates the initial game state in the database,
+    generates the first event, and returns both to the client.
+    """
+    # 1. Create a new User and Game in the database
+    # Note: In a real app, you'd get the user_id from an authenticated session.
+    # For now, we create a new user for each new game.
+    new_user = init_db.User()
+    db.add(new_user)
     db.commit()
+    db.refresh(new_user)
 
-    db.refresh(user)
-    db.refresh(game)
-    db.refresh(initial_day)
-    
-    event = call_llm_for_start(game_id=game.id)
+    new_game = init_db.Game(
+        age=start_req.age,
+        gender=start_req.gender,
+        character_name=start_req.character_name,
+        work=start_req.work,
+        user_id=new_user.id
+    )
+    db.add(new_game)
+    db.commit()
+    db.refresh(new_game)
+    game_id = str(new_game.id)
 
-    return StartGameResponse(
-        game_id=game.id,
+    # 2. Create the first Day entry for the new game
+    initial_stats = models.Stats() # Get default starting stats
+    new_day = init_db.Day(
+        game_id=new_game.id,
+        number_of_day=1,
+        health=initial_stats.health,
+        happiness=initial_stats.happiness,
+        stress=initial_stats.stress,
+        reputation=initial_stats.reputation,
+        education=initial_stats.education,
+        money=initial_stats.money,
+        weekly_income=initial_stats.weekly_income,
+        weekly_expense=initial_stats.weekly_expense,
+        free_time=initial_stats.free_time
+    )
+    db.add(new_day)
+    db.commit()
+    db.refresh(new_day)
+
+    # 3. Construct the initial game state Pydantic model
+    game_state = get_full_game(db, new_game)
+
+    # 4. Generate the first event using the LLM
+    event = llm_generate_event(game_state)
+    # The active_events dictionary is no longer needed with the new flow.
+    # active_events[game_id] = event 
+
+    return models.StartGameResponse(
+        game_state=game_state,
         event=event
     )
 
 
-# GET /api/game/{game_id}/day/{day_number} - Get event for specified day
-@app.get("/api/game/{game_id}/day/{day_number}", response_model=DayEvent)
-async def get_day(game_id: str, day_number: int):
-    game = games.get(game_id)
-    if not game:
+
+
+@app.post("/game/{game_id}/choice", response_model=models.ChoiceResponse)
+def make_choice(
+    game_id: str,
+    choice_request: models.ChoiceRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Handles a player's choice by directly receiving the impact from the
+    frontend, updating the game state, and returning the new state.
+
+    NOTE: This endpoint trusts the client to send a valid, unmodified impact
+    object. In a real-world scenario, this would be a security risk.
+    """
+    # 1. Retrieve the game from the database
+    db_game = db.query(init_db.Game).filter(init_db.Game.id == game_id).first()
+    if not db_game:
         raise HTTPException(status_code=404, detail="Game not found")
 
-    if game.is_over:
-        raise HTTPException(status_code=400, detail="Game is already over")
+    # 2. Get the impact directly from the request
+    impact = choice_request.impact
 
-    return get_day_event(game, day_number)
+    # 3. Get the most recent day for the game
+    current_day = db.query(init_db.Day).filter(init_db.Day.game_id == game_id).order_by(init_db.Day.number_of_day.desc()).first()
+    if not current_day:
+        raise HTTPException(status_code=404, detail="No days found for this game.")
 
+    # 4. Apply the impact to the day's stats, with clamping
+    current_day.health = max(0, min(100, current_day.health + impact.health))
+    current_day.happiness = max(0, min(100, current_day.happiness + impact.happiness))
+    current_day.stress = max(0, min(100, current_day.stress + impact.stress))
+    current_day.reputation += impact.reputation
+    current_day.education += impact.education
+    current_day.money += impact.money
+    current_day.weekly_income += impact.weekly_income
+    current_day.weekly_expense += impact.weekly_expense
+    current_day.free_time += impact.free_time
 
-# POST /api/game/{game_id}/choice - Select choice and update parameters
-@app.post("/api/game/{game_id}/choice", response_model=ChoiceResponse)
-async def make_choice(game_id: str, body: ChoiceRequest):
-    game = games.get(game_id)
-    if not game:
-        raise HTTPException(status_code=404, detail="Game not found")
+    # 5. Commit the changes to the database
+    db.commit()
+    db.refresh(current_day)
 
-    if game.is_over:
-        raise HTTPException(status_code=400, detail="Game is already over")
-
-    event = get_day_event(game, body.day)
-
-    selected = next((c for c in event.choices if c.id == body.choice_id), None)
-    if not selected:
-        raise HTTPException(status_code=400, detail="Invalid choice_id")
-
-    apply_choice(game, selected)
-
-    return ChoiceResponse(
-        status=to_status(game),
-        applied_choice=selected
+    # 6. Construct the full, updated game state response
+    game_state_response = get_full_game(db, db_game)
+    
+    return models.ChoiceResponse(
+        game_state=game_state_response
     )
 
 
-# GET /api/game/{game_id}/status - Get current status
-@app.get("/api/game/{game_id}/status", response_model=GameStatus)
-async def get_status(game_id: str):
-    game = games.get(game_id)
-    if not game:
-        raise HTTPException(status_code=404, detail="Game not found")
+def get_full_game(db: Session, db_game: init_db.Game) -> models.Game:
+    """
+    For Jana: Constructs the complete Pydantic Game model from database objects.
+    """
+    # This function would gather all the necessary data from the DB and assemble the full game state.
+    # This is a simplified representation without finances for now. :)
+    
+    current_day = db.query(init_db.Day).filter(init_db.Day.game_id == db_game.id).order_by(init_db.Day.number_of_day.desc()).first()
 
-    return to_status(game)
+    static_props = models.StaticProperties(
+        character_name=db_game.character_name,
+        gender=db_game.gender,
+        age=db_game.age,
+        work=db_game.work
+    )
+
+    stats = models.Stats(
+        health=current_day.health,
+        happiness=current_day.happiness,
+        stress=current_day.stress,
+        reputation=current_day.reputation,
+        education=current_day.education,
+        money=current_day.money,
+        weekly_income=current_day.weekly_income,
+        weekly_expense=current_day.weekly_expense,
+        free_time=current_day.free_time
+    )
+
+    # Finances would be populated from its own tables if they existed - might implement later
+    # For now, returning an empty Finances object.
+    finances = models.Finances()
+
+    return models.Game(
+        user_id=db_game.user_id,
+        game_id=str(db_game.id),
+        day=current_day.number_of_day,
+        static_properties=static_props,
+        stats=stats,
+        finances=finances
+    )
