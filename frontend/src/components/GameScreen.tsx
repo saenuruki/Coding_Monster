@@ -201,20 +201,38 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
     return <EndingScreen gameState={gameState} />;
   }
 
+  // Get background image based on current day
+  const currentDay = Math.min(gameState.day, 10);
+  const backgroundImage = `/background/bg_${currentDay}.png`;
+
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <GamePlayPanel
-        gameState={gameState}
-        apiSource={apiSource}
-        errorMessage={errorMessage}
-        currentEvent={currentEvent}
-        loading={loading}
-        showResult={showResult}
-        statChanges={statChanges}
-        resultText={resultText}
-        onChooseOption={handleChoice}
-        onActionSelected={handleActionSelected}
-      />
+    <div 
+      className="min-h-screen flex items-center justify-center p-4 relative"
+      style={{
+        backgroundImage: `url(${backgroundImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
+      {/* Overlay for better readability */}
+      <div className="absolute inset-0 bg-black/30" />
+      
+      {/* Content */}
+      <div className="relative z-10">
+        <GamePlayPanel
+          gameState={gameState}
+          apiSource={apiSource}
+          errorMessage={errorMessage}
+          currentEvent={currentEvent}
+          loading={loading}
+          showResult={showResult}
+          statChanges={statChanges}
+          resultText={resultText}
+          onChooseOption={handleChoice}
+          onActionSelected={handleActionSelected}
+        />
+      </div>
     </div>
   );
 }
