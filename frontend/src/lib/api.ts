@@ -149,7 +149,7 @@ let lastResponseSource: ApiSource = 'api';
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
 const FORCE_MOCK_API = (import.meta as any).env?.VITE_USE_MOCK_API === 'false';
-const API_TIMEOUT = 3000;
+const API_TIMEOUT = 10000;
 
 export function getApiSource(): ApiSource {
   return lastResponseSource;
