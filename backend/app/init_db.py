@@ -3,6 +3,7 @@ from sqlalchemy import (
     create_engine,
     Column,
     Integer,
+    Float,
     String,
     Boolean,
     ForeignKey,
@@ -64,10 +65,10 @@ class Day(Base):
     stress = Column(Integer, nullable=False)
     reputation = Column(Integer, nullable=False)
     education = Column(Integer, nullable=False)
-    money = Column(Integer, nullable=False)
-    weekly_income = Column(Integer, nullable=False)
-    weekly_expense = Column(Integer, nullable=False)
-    free_time = Column(Integer, nullable=False)
+    money = Column(Float, nullable=False)
+    weekly_income = Column(Float, nullable=False)
+    weekly_expense = Column(Float, nullable=False)
+    free_time = Column(Float, nullable=False)
 
     game = relationship("Game", back_populates="days")
 

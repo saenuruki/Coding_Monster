@@ -28,14 +28,14 @@ class StartGameRequest(BaseModel):
 class Impact(BaseModel):
     health: int
     happiness: int
-    money: int
+    money: float
     stress: int
     social: int
     reputation: int
     education: int
-    weekly_income:int
-    weekly_expense:int
-    free_time: int
+    weekly_income: float
+    weekly_expense: float
+    free_time: float
 
 
 class Choice(BaseModel):
@@ -73,6 +73,6 @@ class GameState:
         self.game_id = game_id
         self.day = 1
         self.health = 100
-        self.money = 50
+        self.money = 50.0
         self.mood = 50
         self.is_over = False
