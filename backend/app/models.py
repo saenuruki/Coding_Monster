@@ -1,6 +1,111 @@
-from pydantic import BaseModel
+from typing import List, Optional
+
+from pydantic import BaseModel, Field
+
+
+# =============================================================================
+# Core Game & Stat Models (previously in schema.py)
+# ==============================================================================
+
+# PLEASE FOR THE LOVE OF GNOME USE THE SCHEMAS HERE AND NOT MAKE UP CRAZY ONES
+# ------------------- User/Character Schemas -------------------
+
+class StaticProperties(BaseModel):
+    """Base properties for character setup, matching the database `Game` table."""
+    character_name: str
+    gender: str
+    age: int
+    work: bool
+    character_avatar: Optional[str] = Field(None, description="Link to avatar image.")
+
+
+class Stats(BaseModel):
+    """Tracks all ongoing stat values for the player."""
+    health: int = Field(100, ge=0, le=100)
+    happiness: int = Field(50, ge=0, le=100)
+    stress: int = Field(10, ge=0, le=100)
+    reputation: int = Field(0, ge=-100, le=100)
+    education: int = Field(0, ge=0)
+    money: float = Field(50.0, description="Available money in EUR.")
+    weekly_income: float = Field(0.0, description="Total weekly income in EUR.")
+    weekly_expense: float = Field(0.0, description="Total weekly expenses in EUR.")
+    free_time: float = Field(40.0, description="Free time in hours per week.")
+
+
+# ------------------- Finance Schemas -------------------
+
+class Income(BaseModel):
+    source: str
+    amount: float
+    type: str
+
+
+class Expense(BaseModel):
+    source: str
+    amount: float
+    type: str
+
+
+class SavingsAccount(BaseModel):
+    type: str  # "fixed" or "flexible"
+    amount: float
+    interest: float  # monthly rate (e.g., 0.005 = 0.5%)
+
+
+class Finances(BaseModel):
+    incomes: List[Income] = []
+    expenses: List[Expense] = []
+    savings_account: Optional[SavingsAccount] = None
+
+
+# ------------------- Action/Event Schemas -------------------
+
+class Impact(BaseModel):
+    """Describes stat changes made by an action or event."""
+    health: int = 0
+    happiness: int = 0
+    stress: int = 0
+    reputation: int = 0
+    education: int = 0
+    money: float = 0.0
+    weekly_income: float = 0.0
+    weekly_expense: float = 0.0
+    free_time: float = 0.0
+
+
+class EventOption(BaseModel):
+    """An option a user can choose in response to an Event."""
+    description: str
+    impact: Impact
+
+
+class Event(BaseModel):
+    """A game event with multiple options for the user to select from."""
+    event_id: int
+    description: str
+    options: List[EventOption]
+
+
+# ------------------- Game Core Schema -------------------
+
+class Game(BaseModel):
+    """The main Pydantic model representing the complete state of a game session."""
+    user_id: int
+    game_id: str
+    day: int = 1
+    is_over: bool = False
+    static_properties: StaticProperties
+    stats: Stats
+    finances: Finances
+
+
+# =============================================================================
+# Database & API Models
+# ==============================================================================
+
 
 class GameSchema(BaseModel):
+    """Schema for reading game data from the database."""
     id: int
     age: int
     gender: str
@@ -9,70 +114,34 @@ class GameSchema(BaseModel):
     user_id: int
 
     class Config:
-        from_attributes = True  
+        from_attributes = True
 
-class GameStatus(BaseModel):
-    user_id: int
-    work: bool
-    age: int
-    gender: str
-    character_name: str
-    day: int = 1
+
+# ------------------- API Request/Response Models -------------------
 
 class StartGameRequest(BaseModel):
+    """Request model for starting a new game."""
     age: int
     gender: str
     character_name: str
     work: bool
-
-class Impact(BaseModel):
-    health: int
-    happiness: int
-    money: float
-    stress: int
-    social: int
-    reputation: int
-    education: int
-    weekly_income: float
-    weekly_expense: float
-    free_time: float
-
-
-class Choice(BaseModel):
-    id: int
-    text: str
-    impact: Impact
-
-class DayEvent(BaseModel):
-    day: int
-    description: str
-    choices: list[Choice]
-
-class GameEvent(BaseModel):
-    event_message: str
-    choices: list[Choice]
 
 
 class StartGameResponse(BaseModel):
-    game_id: str
-    event: GameEvent
+    """Response model after starting a new game."""
+    game_state: Game
+    event: Event
 
 
 class ChoiceRequest(BaseModel):
-    day: int
-    choice_id: int
+    """Request model for submitting a choice for an event."""
+    game_id: str
+    event_id: int
+    # The index of the option selected by the user from the event's options list.
+    choice_index: int
 
 
 class ChoiceResponse(BaseModel):
-    status: GameStatus
-    applied_choice: Choice
-
-
-class GameState:
-    def __init__(self, game_id: str):
-        self.game_id = game_id
-        self.day = 1
-        self.health = 100
-        self.money = 50.0
-        self.mood = 50
-        self.is_over = False
+    """Response model after a choice has been applied."""
+    game_state: Game
+    applied_option: EventOption
