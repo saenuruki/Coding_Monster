@@ -73,9 +73,15 @@ export function GamePlayPanel({
                 <Icon className={`h-4 w-4 ${color}`} />
                 <span className="text-white text-sm">{label}</span>
               </div>
-              <span className="text-white text-sm">{gameState.status[key]}%</span>
+              <span className="text-white text-sm">
+                {key === 'money' ? `€${gameState.status[key]}` : `${gameState.status[key]}%`}
+              </span>
             </div>
-            <Progress value={gameState.status[key]} className="h-1.5" />
+            {key === 'money' ? (
+              <div className="text-white/60 text-xs mt-1">Available funds</div>
+            ) : (
+              <Progress value={gameState.status[key]} className="h-1.5" />
+            )}
           </Card>
         ))}
       </div>
@@ -189,8 +195,11 @@ export function GamePlayPanel({
                         } px-3 py-2`}
                       >
                         <Icon className="h-3 w-3 mr-1" />
-                        {change > 0 ? '+' : ''}
-                        {change} {label}
+                        {key === 'money' ? (
+                          <>{change > 0 ? '+' : ''}€{change}</>
+                        ) : (
+                          <>{change > 0 ? '+' : ''}{change} {label}</>
+                        )}
                       </Badge>
                     );
                   })}
