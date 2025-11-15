@@ -4,7 +4,7 @@ import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
-import { Activity, Heart, Wallet, Zap, Users, Briefcase, Calendar, Loader2 } from 'lucide-react';
+import { Activity, Heart, Wallet, Zap, Users, Briefcase, Calendar, Loader2, ArrowLeft } from 'lucide-react';
 import { GameEvent, GameState, GameStatus } from '../lib/api';
 import { ActionsPanel, ActionItem } from './ActionsPanel';
 import { ManageFinancePanel } from './ManageFinancePanel';
@@ -51,6 +51,45 @@ export function GamePlayPanel({
   const [selectedTab, setSelectedTab] = React.useState<'actions' | 'finance' | null>(null);
   const hasPositiveChange = Object.values(statChanges).some(value => (value ?? 0) > 0);
 
+  // Show Actions Panel screen
+  if (selectedTab === 'actions') {
+    return (
+      <div className="w-full max-w-2xl space-y-4">
+        <Button
+          type="button"
+          onClick={() => setSelectedTab(null)}
+          className="bg-[#2b2b2b] hover:bg-[#4a4a4a] border border-white/10 text-white"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Game
+        </Button>
+        <ActionsPanel 
+          onSelectAction={onActionSelected}
+          currentMoney={gameState.status.money}
+          timeAllocation={gameState.time_allocation}
+        />
+      </div>
+    );
+  }
+
+  // Show Manage Finance Panel screen
+  if (selectedTab === 'finance') {
+    return (
+      <div className="w-full max-w-2xl space-y-4">
+        <Button
+          type="button"
+          onClick={() => setSelectedTab(null)}
+          className="bg-[#2b2b2b] hover:bg-[#4a4a4a] border border-white/10 text-white"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Game
+        </Button>
+        <ManageFinancePanel />
+      </div>
+    );
+  }
+
+  // Default Game Play screen
   return (
     <div className="w-full max-w-2xl space-y-4">
       {apiSource === 'mock' && (
@@ -90,40 +129,19 @@ export function GamePlayPanel({
         <div className="flex flex-col sm:flex-row gap-2">
           <Button
             type="button"
-            className={`flex-1 border border-white/10 transition-colors text-white ${
-              selectedTab === 'actions'
-                ? 'bg-black hover:bg-black'
-                : 'bg-[#2b2b2b] hover:bg-[#4a4a4a]'
-            }`}
-            onClick={() => {
-              setSelectedTab(selectedTab === 'actions' ? null : 'actions');
-            }}
+            className="flex-1 border border-white/10 transition-colors text-white bg-[#2b2b2b] hover:bg-[#4a4a4a]"
+            onClick={() => setSelectedTab('actions')}
           >
             Actions
           </Button>
           <Button
             type="button"
-            className={`flex-1 border border-white/10 transition-colors text-white ${
-              selectedTab === 'finance'
-                ? 'bg-black hover:bg-black'
-                : 'bg-[#2b2b2b] hover:bg-[#4a4a4a]'
-            }`}
-            onClick={() => {
-              setSelectedTab(selectedTab === 'finance' ? null : 'finance');
-            }}
+            className="flex-1 border border-white/10 transition-colors text-white bg-[#2b2b2b] hover:bg-[#4a4a4a]"
+            onClick={() => setSelectedTab('finance')}
           >
             Manage Finance
           </Button>
         </div>
-
-        {selectedTab === 'actions' && (
-          <ActionsPanel 
-            onSelectAction={onActionSelected}
-            currentMoney={gameState.status.money}
-            timeAllocation={gameState.time_allocation}
-          />
-        )}
-        {selectedTab === 'finance' && <ManageFinancePanel />}
 
         <Card className="bg-[#3a3a3a] backdrop-blur-lg border-white/10 p-4">
           <div className="flex items-center justify-center gap-2 text-white">
