@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
 import { Activity, Heart, Wallet, Zap, Users, Briefcase, Calendar, Loader2 } from 'lucide-react';
-import { GameState, startNewGame, getDayEvent, submitChoice, GameEvent, GameStatus } from '../lib/api';
+import { GameState, startNewGame, getDayEvent, submitChoice, GameEvent, GameStatus, getApiSource } from '../lib/api';
 import { GamePhase } from '../App';
 import { EndingScreen } from './EndingScreen';
 
@@ -31,6 +31,8 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
   const [statChanges, setStatChanges] = useState<Partial<GameStatus>>({});
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
+  const [apiSource, setApiSource] = useState<'api' | 'mock'>(getApiSource());
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     initializeGame();
@@ -42,13 +44,20 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
     }
   }, [gameState?.day]);
 
+  const updateApiSource = () => {
+    setApiSource(getApiSource());
+  };
+
   const initializeGame = async () => {
     try {
       setInitializing(true);
       const newGame = await startNewGame();
       setGameState(newGame);
+      updateApiSource();
+      setErrorMessage(null);
     } catch (error) {
       console.error('Failed to start game:', error);
+      setErrorMessage('Failed to start game. Please refresh and try again.');
     } finally {
       setInitializing(false);
     }
@@ -66,8 +75,11 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
       setLoading(true);
       const event = await getDayEvent(gameState.game_id, gameState.day);
       setCurrentEvent(event);
+      updateApiSource();
+      setErrorMessage(null);
     } catch (error) {
       console.error('Failed to load event:', error);
+      setErrorMessage('Failed to load the next event. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -80,6 +92,8 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
       setLoading(true);
       
       const result = await submitChoice(gameState.game_id, choiceIndex);
+      updateApiSource();
+      setErrorMessage(null);
       
       // Calculate changes
       const changes: Partial<GameStatus> = {};
@@ -107,6 +121,7 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
       
     } catch (error) {
       console.error('Failed to submit choice:', error);
+      setErrorMessage('Failed to submit your choice. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -138,6 +153,18 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-2xl space-y-4">
+        {apiSource === 'mock' && (
+          <Card className="bg-yellow-500/10 border-yellow-500/40 text-yellow-100 text-sm p-3">
+            Live API unreachable. Showing built-in demo data so play can continue.
+          </Card>
+        )}
+
+        {errorMessage && (
+          <Card className="bg-red-500/10 border-red-500/40 text-red-100 text-sm p-3">
+            {errorMessage}
+          </Card>
+        )}
+
         {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {STAT_CONFIG.map(({ key, icon: Icon, label, color, bgColor, borderColor }) => (
