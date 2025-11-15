@@ -10,12 +10,9 @@ import { ActionsPanel, ActionItem } from './ActionsPanel';
 import { ManageFinancePanel } from './ManageFinancePanel';
 
 const STAT_CONFIG = [
-  { key: 'health' as keyof GameStatus, icon: Activity, label: 'Health', color: 'text-red-400' },
-  { key: 'happiness' as keyof GameStatus, icon: Heart, label: 'Happiness', color: 'text-rose-400' },
-  { key: 'money' as keyof GameStatus, icon: Wallet, label: 'Money', color: 'text-emerald-400' },
-  { key: 'energy' as keyof GameStatus, icon: Zap, label: 'Energy', color: 'text-amber-400' },
-  { key: 'social' as keyof GameStatus, icon: Users, label: 'Social', color: 'text-blue-400' },
-  { key: 'career' as keyof GameStatus, icon: Briefcase, label: 'Career', color: 'text-purple-400' },
+  { key: 'health' as keyof GameStatus, icon: Activity, label: 'Health', color: 'text-red-400', max: 100 },
+  { key: 'mood' as keyof GameStatus, icon: Heart, label: 'Mood', color: 'text-rose-400', max: 100 },
+  { key: 'money' as keyof GameStatus, icon: Wallet, label: 'Money', color: 'text-emerald-400', max: 1000 },
 ];
 
 interface GamePlayPanelProps {
@@ -27,7 +24,7 @@ interface GamePlayPanelProps {
   showResult: boolean;
   statChanges: Partial<GameStatus>;
   resultText: string;
-  onChooseOption: (choiceIndex: number) => void;
+  onChooseOption: (choiceId: number) => void;
   onActionSelected?: (action: ActionItem) => void;
 }
 
@@ -44,7 +41,9 @@ export function GamePlayPanel({
   onActionSelected,
 }: GamePlayPanelProps) {
   const [selectedTab, setSelectedTab] = React.useState<'actions' | 'finance' | null>(null);
-  const hasPositiveChange = Object.values(statChanges).some(value => (value ?? 0) > 0);
+  const hasPositiveChange = Object.values(statChanges).some(value => 
+    typeof value === 'number' && value > 0
+  );
 
   return (
     <div className="w-full max-w-2xl space-y-4">
@@ -61,18 +60,24 @@ export function GamePlayPanel({
       )}
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        {STAT_CONFIG.map(({ key, icon: Icon, label, color }) => (
-          <Card key={key} className="bg-[#3a3a3a] backdrop-blur-lg border-white/10 p-3">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <Icon className={`h-4 w-4 ${color}`} />
-                <span className="text-white text-sm">{label}</span>
+        {STAT_CONFIG.map(({ key, icon: Icon, label, color, max }) => {
+          const value = gameState.status[key] as number;
+          const percentage = (value / max) * 100;
+          const displayValue = key === 'money' ? `$${value}` : `${value}%`;
+          
+          return (
+            <Card key={key} className="bg-[#3a3a3a] backdrop-blur-lg border-white/10 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Icon className={`h-4 w-4 ${color}`} />
+                  <span className="text-white text-sm">{label}</span>
+                </div>
+                <span className="text-white text-sm">{displayValue}</span>
               </div>
-              <span className="text-white text-sm">{gameState.status[key]}%</span>
-            </div>
-            <Progress value={gameState.status[key]} className="h-1.5" />
-          </Card>
-        ))}
+              <Progress value={percentage} className="h-1.5" />
+            </Card>
+          );
+        })}
       </div>
 
       <div className="space-y-3">
@@ -140,16 +145,16 @@ export function GamePlayPanel({
               </div>
 
               <div className="space-y-3">
-                {currentEvent.options.map((option, index) => (
+                {currentEvent.choices?.map((choice) => (
                   <Button
-                    key={index}
+                    key={choice.id}
                     type="button"
-                    onClick={() => onChooseOption(index)}
+                    onClick={() => onChooseOption(choice.id)}
                     className="w-full h-auto py-4 px-4 bg-[#2b2b2b] hover:bg-[#4a4a4a] border border-white/10 text-left"
                     variant="outline"
                     disabled={loading}
                   >
-                    <span className="text-white">{option}</span>
+                    <span className="text-white">{choice.text}</span>
                   </Button>
                 ))}
               </div>
@@ -172,7 +177,7 @@ export function GamePlayPanel({
                 <div className="flex gap-2 justify-center flex-wrap">
                   {STAT_CONFIG.map(({ key, icon: Icon, label }) => {
                     const change = statChanges[key];
-                    if (!change || change === 0) return null;
+                    if (!change || change === 0 || typeof change !== 'number') return null;
 
                     return (
                       <Badge

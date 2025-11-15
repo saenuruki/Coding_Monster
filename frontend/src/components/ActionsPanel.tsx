@@ -22,11 +22,18 @@ import {
 } from 'lucide-react';
 import { GameStatus } from '../lib/api';
 
+// Impact type with only numeric fields
+export interface ActionImpact {
+  health?: number;
+  mood?: number;
+  money?: number;
+}
+
 export interface ActionItem {
   id: string;
   name: string;
   type: 'education' | 'work' | 'social' | 'hobby';
-  impact: Partial<GameStatus>;
+  impact: ActionImpact;
   description: string;
   cost?: number;
   time_cost: number; // Time allocation cost in hours
@@ -40,7 +47,7 @@ const ACTIONS: ActionItem[] = [
     id: 'edu-study-30',
     name: 'Study 30 mins',
     type: 'education',
-    impact: { career: 10, energy: -5, happiness: -2 },
+    impact: { money: 5, health: -5, mood: -2 },
     description: 'Focus on your studies for half an hour. Boosts career prospects.',
     time_cost: 0.5,
     duration: '30min',
@@ -50,7 +57,7 @@ const ACTIONS: ActionItem[] = [
     id: 'edu-group-study',
     name: 'Group Study',
     type: 'education',
-    impact: { career: 15, social: 5, energy: -10, happiness: 3 },
+    impact: { money: 7, health: -10, mood: 8 },
     description: 'Study with classmates for 2 hours. Great for learning and socializing.',
     time_cost: 2,
     duration: '2hrs',
@@ -60,9 +67,9 @@ const ACTIONS: ActionItem[] = [
     id: 'edu-hire-tutor',
     name: 'Hire a Tutor',
     type: 'education',
-    impact: { career: 20, money: -50 },
+    impact: { money: -30, mood: 5 },
     description: 'Get personalized help from a professional tutor.',
-    cost: 50,
+    cost: 30,
     time_cost: 1.5,
     duration: '1.5hrs',
     icon: GraduationCap
@@ -71,7 +78,7 @@ const ACTIONS: ActionItem[] = [
     id: 'edu-learning-service',
     name: 'Subscribe to Learning Service',
     type: 'education',
-    impact: { career: 15, money: -30 },
+    impact: { money: -30, mood: 3 },
     description: 'Access online courses and learning materials.',
     cost: 30,
     time_cost: 0,
@@ -84,7 +91,7 @@ const ACTIONS: ActionItem[] = [
     id: 'work-gig',
     name: 'Do a Quick Gig',
     type: 'work',
-    impact: { money: 15, energy: -15, happiness: -5 },
+    impact: { money: 15, health: -15, mood: -5 },
     description: 'Take on a short task like washing a car or delivering food.',
     time_cost: 1.5,
     duration: '1-2hrs',
@@ -94,7 +101,7 @@ const ACTIONS: ActionItem[] = [
     id: 'work-find-job',
     name: 'Find a Job',
     type: 'work',
-    impact: { career: 5, energy: -5 },
+    impact: { money: 10, health: -5 },
     description: 'Search for part-time employment opportunities. 3-4 options available.',
     time_cost: 1,
     duration: '1hr',
@@ -104,7 +111,7 @@ const ACTIONS: ActionItem[] = [
     id: 'work-manage-job',
     name: 'Manage Current Job',
     type: 'work',
-    impact: { career: 5 },
+    impact: { money: 8, mood: 2 },
     description: 'View your current job, adjust hours, or quit if needed.',
     time_cost: 0.5,
     duration: '30min',
@@ -116,7 +123,7 @@ const ACTIONS: ActionItem[] = [
     id: 'social-parents',
     name: 'Visit Parents',
     type: 'social',
-    impact: { social: 10, happiness: 8, money: 20 },
+    impact: { mood: 18, money: 20 },
     description: 'Spend quality time with family. They might help with expenses!',
     time_cost: 3,
     duration: '3hrs',
@@ -126,7 +133,7 @@ const ACTIONS: ActionItem[] = [
     id: 'social-date',
     name: 'Go on a Date',
     type: 'social',
-    impact: { social: 15, happiness: 12, money: -25 },
+    impact: { mood: 27, money: -25 },
     description: 'Enjoy a romantic evening with someone special.',
     cost: 25,
     time_cost: 2.5,
@@ -137,7 +144,7 @@ const ACTIONS: ActionItem[] = [
     id: 'social-cinema',
     name: 'Go to Cinema',
     type: 'social',
-    impact: { social: 8, happiness: 10, money: -15 },
+    impact: { mood: 18, money: -15 },
     description: 'Watch a movie with friends and relax.',
     cost: 15,
     time_cost: 2.5,
@@ -148,7 +155,7 @@ const ACTIONS: ActionItem[] = [
     id: 'social-party',
     name: 'Attend a Party',
     type: 'social',
-    impact: { social: 20, happiness: 15, energy: -20, money: -20 },
+    impact: { mood: 35, health: -20, money: -20 },
     description: 'Let loose and have fun with friends all night!',
     cost: 20,
     time_cost: 4,
@@ -159,7 +166,7 @@ const ACTIONS: ActionItem[] = [
     id: 'social-bowling',
     name: 'Go Bowling',
     type: 'social',
-    impact: { social: 12, happiness: 10, money: -18 },
+    impact: { mood: 22, money: -18 },
     description: 'Strike up some fun with friends at the bowling alley.',
     cost: 18,
     time_cost: 2,
@@ -170,7 +177,7 @@ const ACTIONS: ActionItem[] = [
     id: 'social-eat-out',
     name: 'Eat Out',
     type: 'social',
-    impact: { social: 10, happiness: 8, money: -20 },
+    impact: { mood: 18, money: -20 },
     description: 'Enjoy a meal at a restaurant with friends.',
     cost: 20,
     time_cost: 1.5,
@@ -181,7 +188,7 @@ const ACTIONS: ActionItem[] = [
     id: 'social-gaming',
     name: 'Gaming Session',
     type: 'social',
-    impact: { social: 8, happiness: 12, energy: -5 },
+    impact: { mood: 20, health: -5 },
     description: 'Play online games with friends and have a blast.',
     time_cost: 2,
     duration: '2hrs',
@@ -193,7 +200,7 @@ const ACTIONS: ActionItem[] = [
     id: 'hobby-gym-once',
     name: 'Gym (One-time)',
     type: 'hobby',
-    impact: { health: 10, energy: -10, happiness: 5, money: -10 },
+    impact: { health: 10, mood: 5, money: -10 },
     description: 'Get a day pass and work out to stay fit.',
     cost: 10,
     time_cost: 1.5,
@@ -204,7 +211,7 @@ const ACTIONS: ActionItem[] = [
     id: 'hobby-gym-sub',
     name: 'Gym Subscription',
     type: 'hobby',
-    impact: { health: 15, energy: -8, happiness: 8, money: -30 },
+    impact: { health: 15, mood: 8, money: -30 },
     description: 'Subscribe for unlimited gym access this month.',
     cost: 30,
     time_cost: 0,
@@ -215,7 +222,7 @@ const ACTIONS: ActionItem[] = [
     id: 'hobby-music',
     name: 'Listen to Music',
     type: 'hobby',
-    impact: { happiness: 8, energy: 5 },
+    impact: { mood: 8, health: 5 },
     description: 'Relax and enjoy your favorite tunes.',
     time_cost: 1,
     duration: '1hr',
@@ -225,7 +232,7 @@ const ACTIONS: ActionItem[] = [
     id: 'hobby-film',
     name: 'Watch a Film',
     type: 'hobby',
-    impact: { happiness: 10, energy: 3 },
+    impact: { mood: 10, health: 3 },
     description: 'Enjoy a movie at home and unwind.',
     time_cost: 2,
     duration: '2hrs',
@@ -235,7 +242,7 @@ const ACTIONS: ActionItem[] = [
     id: 'hobby-gaming-solo',
     name: 'Gaming (Solo)',
     type: 'hobby',
-    impact: { happiness: 12, energy: -5 },
+    impact: { mood: 12, health: -5 },
     description: 'Play your favorite video games alone.',
     time_cost: 2,
     duration: '2hrs',
@@ -245,7 +252,7 @@ const ACTIONS: ActionItem[] = [
     id: 'hobby-book',
     name: 'Read a Book',
     type: 'hobby',
-    impact: { happiness: 8, career: 5, energy: 3 },
+    impact: { mood: 8, money: 5, health: 3 },
     description: 'Get lost in a good book and expand your mind.',
     time_cost: 1,
     duration: '1hr',
@@ -255,7 +262,7 @@ const ACTIONS: ActionItem[] = [
     id: 'hobby-walk',
     name: 'Take a Walk',
     type: 'hobby',
-    impact: { health: 8, happiness: 10, energy: 5 },
+    impact: { health: 8, mood: 10 },
     description: 'Go for a refreshing walk outside.',
     time_cost: 0.5,
     duration: '30min',
@@ -265,7 +272,7 @@ const ACTIONS: ActionItem[] = [
     id: 'hobby-pet-cat',
     name: 'Pet a Cat',
     type: 'hobby',
-    impact: { happiness: 15, energy: 8 },
+    impact: { mood: 15, health: 8 },
     description: 'Spend time with a furry friend. Instant mood booster!',
     time_cost: 0.5,
     duration: '30min',
@@ -313,7 +320,7 @@ export function ActionsPanel({ onSelectAction, currentMoney = 0, timeAllocation 
     setExpandedAction(null);
   };
 
-  const renderImpact = (impact: Partial<GameStatus>) => {
+  const renderImpact = (impact: ActionImpact) => {
     const impacts = Object.entries(impact).map(([key, value]) => {
       if (!value || value === 0) return null;
       

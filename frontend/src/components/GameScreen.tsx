@@ -73,24 +73,25 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
     }
   };
 
-  const handleChoice = async (choiceIndex: number) => {
+  const handleChoice = async (choiceId: number) => {
     if (!gameState || !currentEvent) return;
 
     try {
       setLoading(true);
       
-      const result = await submitChoice(gameState.game_id, choiceIndex);
+      const result = await submitChoice(gameState.game_id, choiceId, gameState.day);
       updateApiSource();
       setErrorMessage(null);
       
-      // Calculate changes
+      // Calculate changes for numeric fields only
       const changes: Partial<GameStatus> = {};
-      Object.keys(result.status).forEach(key => {
-        const statKey = key as keyof GameStatus;
-        const oldValue = gameState.status[statKey];
-        const newValue = result.status[statKey];
+      const numericKeys: Array<keyof GameStatus> = ['health', 'money', 'mood'];
+      
+      numericKeys.forEach(key => {
+        const oldValue = gameState.status[key] as number;
+        const newValue = result.status[key] as number;
         if (oldValue !== newValue) {
-          changes[statKey] = newValue - oldValue;
+          changes[key] = (newValue - oldValue) as any;
         }
       });
       
@@ -103,7 +104,7 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
         setGameState(prev => prev ? {
           ...prev,
           status: result.status,
-          day: prev.day + 1,
+          day: result.status.day,
           time_allocation: prev.max_time_allocation, // Restore time allocation for new day
         } : null);
       }, 3000);
@@ -121,18 +122,23 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
 
     // Calculate new status
     const newStatus = { ...gameState.status };
-    Object.entries(action.impact).forEach(([key, value]) => {
-      if (value) {
-        const statKey = key as keyof GameStatus;
-        newStatus[statKey] = Math.max(0, Math.min(100, newStatus[statKey] + value));
-      }
-    });
+    
+    // Apply impacts
+    if (action.impact.health) {
+      newStatus.health = Math.max(0, Math.min(100, newStatus.health + action.impact.health));
+    }
+    if (action.impact.mood) {
+      newStatus.mood = Math.max(0, Math.min(100, newStatus.mood + action.impact.mood));
+    }
+    if (action.impact.money) {
+      newStatus.money = Math.max(0, Math.min(1000, newStatus.money + action.impact.money));
+    }
 
     // Deduct time allocation
     const newTimeAllocation = Math.max(0, gameState.time_allocation - action.time_cost);
 
     // Show result
-    setStatChanges(action.impact);
+    setStatChanges(action.impact as any);
     setResultText(`You chose to: ${action.name}. ${action.description} (Time used: ${action.time_cost} hrs)`);
     setShowResult(true);
 
