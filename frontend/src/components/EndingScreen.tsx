@@ -9,18 +9,18 @@ interface EndingScreenProps {
   gameState: GameState;
 }
 
-const STAT_CONFIG = [
-  { key: 'health' as keyof GameStatus, icon: Activity, label: 'Health', color: 'text-red-400', bgColor: 'bg-red-500/20', borderColor: 'border-red-500/30' },
-  { key: 'happiness' as keyof GameStatus, icon: Heart, label: 'Happiness', color: 'text-rose-400', bgColor: 'bg-rose-500/20', borderColor: 'border-rose-500/30' },
-  { key: 'money' as keyof GameStatus, icon: Wallet, label: 'Money', color: 'text-emerald-400', bgColor: 'bg-emerald-500/20', borderColor: 'border-emerald-500/30' },
-  { key: 'energy' as keyof GameStatus, icon: Zap, label: 'Energy', color: 'text-amber-400', bgColor: 'bg-amber-500/20', borderColor: 'border-amber-500/30' },
-  { key: 'social' as keyof GameStatus, icon: Users, label: 'Social', color: 'text-blue-400', bgColor: 'bg-blue-500/20', borderColor: 'border-blue-500/30' },
-  { key: 'career' as keyof GameStatus, icon: Briefcase, label: 'Career', color: 'text-purple-400', bgColor: 'bg-purple-500/20', borderColor: 'border-purple-500/30' },
+type NumericStat = 'health' | 'mood' | 'money';
+
+const STAT_CONFIG: Array<{ key: NumericStat; icon: any; label: string; color: string; bgColor: string; borderColor: string }> = [
+  { key: 'health', icon: Activity, label: 'Health', color: 'text-red-400', bgColor: 'bg-red-500/20', borderColor: 'border-red-500/30' },
+  { key: 'mood', icon: Heart, label: 'Mood', color: 'text-rose-400', bgColor: 'bg-rose-500/20', borderColor: 'border-rose-500/30' },
+  { key: 'money', icon: Wallet, label: 'Money', color: 'text-emerald-400', bgColor: 'bg-emerald-500/20', borderColor: 'border-emerald-500/30' },
 ];
 
 export function EndingScreen({ gameState }: EndingScreenProps) {
-  const totalScore = Object.values(gameState.status).reduce((sum, val) => sum + val, 0);
-  const averageScore = totalScore / 6;
+  // Calculate average score from health and mood only (money is in currency, not percentage)
+  const totalScore = gameState.status.health + gameState.status.mood;
+  const averageScore = totalScore / 2;
   
   let grade = '';
   let message = '';
@@ -50,21 +50,22 @@ export function EndingScreen({ gameState }: EndingScreenProps) {
 
   const insights: string[] = [];
   
-  // Analyze balance
-  const scores = Object.values(gameState.status);
-  const maxScore = Math.max(...scores);
-  const minScore = Math.min(...scores);
+  // Analyze balance (only for percentage-based stats)
+  const percentageScores = [gameState.status.health, gameState.status.mood];
+  const maxScore = Math.max(...percentageScores);
+  const minScore = Math.min(...percentageScores);
   const variance = maxScore - minScore;
   
   if (variance < 20) {
-    insights.push('Excellent balance! You maintained all aspects of your life equally.');
+    insights.push('Excellent balance! You maintained health and mood equally well.');
   } else if (variance > 40) {
-    insights.push('Your life is unbalanced. Some areas need more attention.');
+    insights.push('Your life is unbalanced. Try to balance health and mood better.');
   }
   
-  // Analyze specific stats
-  const highStats = STAT_CONFIG.filter(({ key }) => gameState.status[key] >= 80);
-  const lowStats = STAT_CONFIG.filter(({ key }) => gameState.status[key] < 40);
+  // Analyze specific stats (exclude money from percentage comparisons)
+  const percentageStats = STAT_CONFIG.filter(({ key }) => key !== 'money');
+  const highStats = percentageStats.filter(({ key }) => gameState.status[key] >= 80);
+  const lowStats = percentageStats.filter(({ key }) => gameState.status[key] < 40);
   
   if (highStats.length > 0) {
     insights.push(`Strong in: ${highStats.map(s => s.label).join(', ')}. Keep it up!`);
@@ -74,16 +75,20 @@ export function EndingScreen({ gameState }: EndingScreenProps) {
     insights.push(`Needs attention: ${lowStats.map(s => s.label).join(', ')}. Focus on these areas.`);
   }
   
-  // Work-life balance
-  if (gameState.status.career > 80 && gameState.status.health < 50) {
-    insights.push('You\'re a workaholic! Don\'t sacrifice your health for your career.');
+  // Life balance insights
+  if (gameState.status.health < 40) {
+    insights.push('Your health needs attention! Remember to take care of yourself.');
   }
   
-  if (gameState.status.social > 80 && gameState.status.money < 50) {
-    insights.push('You\'re very social, but watch your spending! Balance fun with financial stability.');
+  if (gameState.status.mood < 40) {
+    insights.push('Your mood is low. Don\'t forget to do things that make you happy!');
   }
   
-  if (gameState.status.money > 80 && gameState.status.happiness < 60) {
+  if (gameState.status.money < 100) {
+    insights.push('Watch your finances! Try to save more and spend wisely.');
+  }
+  
+  if (gameState.status.money > 500 && gameState.status.mood < 60) {
     insights.push('You\'re financially secure but remember - money isn\'t everything. Enjoy life!');
   }
 
@@ -138,8 +143,14 @@ export function EndingScreen({ gameState }: EndingScreenProps) {
                   <span className="text-white">{label}</span>
                 </div>
                 <div className="space-y-2">
-                  <div className="text-white text-2xl">{gameState.status[key]}%</div>
-                  <Progress value={gameState.status[key]} className="h-2" />
+                  <div className="text-white text-2xl">
+                    {key === 'money' ? `€${gameState.status[key]}` : `${gameState.status[key]}%`}
+                  </div>
+                  {key === 'money' ? (
+                    <div className="text-white/60 text-sm">Final funds</div>
+                  ) : (
+                    <Progress value={gameState.status[key]} className="h-2" />
+                  )}
                 </div>
               </div>
             ))}
