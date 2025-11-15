@@ -2,9 +2,9 @@ from fastapi import FastAPI, HTTPException, Depends
 from sqlalchemy.orm import Session
 import random
 
-from . import models
-from . import init_db
-from .llm.event_generator import llm_generate_event
+import models
+import init_db
+from llm.event_generator import llm_generate_event
 
 # TODO: Add to a database or other persistent store
 games: dict[str, models.Game] = {}
