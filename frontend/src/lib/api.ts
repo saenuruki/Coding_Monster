@@ -1,18 +1,38 @@
 // Mock API functions for game backend with live API fallback
 
 export interface GameStatus {
+  game_id: string;
+  day: number;
   health: number;
-  happiness: number;
   money: number;
-  energy: number;
-  social: number;
-  career: number;
+  mood: number;
+  is_over: boolean;
+}
+
+export interface Choice {
+  id: number;
+  text: string;
+  impact?: number;
+  health_delta?: number;
+  money_delta?: number;
+  mood_delta?: number;
 }
 
 export interface GameEvent {
-  status: GameStatus;
   event_message: string;
-  options: string[];
+  choices: Choice[];
+}
+
+export interface StartGameRequest {
+  age: number;
+  gender: string;
+  character_name: string;
+  work: boolean;
+}
+
+export interface StartGameResponse {
+  game_id: string;
+  event: GameEvent;
 }
 
 export interface GameState {
@@ -20,11 +40,18 @@ export interface GameState {
   day: number;
   status: GameStatus;
   currentEvent: GameEvent | null;
+  params: StartGameRequest;
+}
+
+export interface DayEvent {
+  day: number;
+  description: string;
+  choices: Choice[];
 }
 
 type SubmitChoiceResponse = {
   status: GameStatus;
-  result_message: string;
+  applied_choice: Choice;
 };
 
 type ApiSource = 'api' | 'mock';
@@ -32,8 +59,8 @@ type ApiSource = 'api' | 'mock';
 let currentGame: GameState | null = null;
 let lastResponseSource: ApiSource = 'api';
 
-const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL ?? 'https://sample.com';
-const FORCE_MOCK_API = import.meta.env?.VITE_USE_MOCK_API === 'true';
+const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? 'https://sample.com';
+const FORCE_MOCK_API = (import.meta as any).env?.VITE_USE_MOCK_API === 'true';
 const API_TIMEOUT = 3000;
 
 export function getApiSource(): ApiSource {
@@ -42,12 +69,6 @@ export function getApiSource(): ApiSource {
 
 function setApiSource(source: ApiSource) {
   lastResponseSource = source;
-}
-
-interface StartGameResponse {
-  game_id: string;
-  day: number;
-  status: GameStatus;
 }
 
 async function requestWithTimeout<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -75,21 +96,30 @@ async function requestWithTimeout<T>(path: string, options: RequestInit = {}): P
 }
 
 // POST /api/game/start - Start new game
-export async function startNewGame(): Promise<GameState> {
+export async function startNewGame(params: StartGameRequest): Promise<GameState> {
   if (FORCE_MOCK_API) {
-    return startNewGameMock();
+    return startNewGameMock(params);
   }
 
   try {
     const data = await requestWithTimeout<StartGameResponse>('/api/game/start', {
       method: 'POST',
+      body: JSON.stringify(params),
     });
 
     const game: GameState = {
       game_id: data.game_id,
-      day: data.day,
-      status: data.status,
-      currentEvent: null,
+      day: 1,
+      status: {
+        game_id: data.game_id,
+        day: 1,
+        health: 70,
+        money: 400,
+        mood: 70,
+        is_over: false,
+      },
+      currentEvent: data.event,
+      params: params,
     };
 
     currentGame = game;
@@ -97,29 +127,25 @@ export async function startNewGame(): Promise<GameState> {
     return game;
   } catch (error) {
     console.warn('startNewGame failed, using mock data', error);
-    return startNewGameMock();
+    return startNewGameMock(params);
   }
 }
 
 // GET /api/game/{game_id}/day/{day_number} - Get event for specified day
-export async function getDayEvent(gameId: string, dayNumber: number): Promise<GameEvent> {
+export async function getDayEvent(gameId: string, dayNumber: number): Promise<DayEvent> {
   if (FORCE_MOCK_API) {
     return getDayEventMock(gameId, dayNumber);
   }
 
   try {
-    const event = await requestWithTimeout<GameEvent>(`/api/game/${gameId}/day/${dayNumber}`);
+    const event = await requestWithTimeout<DayEvent>(`/api/game/${gameId}/day/${dayNumber}`);
 
-    if (!currentGame || currentGame.game_id !== gameId) {
-      currentGame = {
-        game_id: gameId,
-        day: dayNumber,
-        status: event.status,
-        currentEvent: event,
+    if (currentGame && currentGame.game_id === gameId) {
+      currentGame.currentEvent = {
+        event_message: event.description,
+        choices: event.choices,
       };
-    } else {
-      currentGame.currentEvent = event;
-      currentGame.status = event.status;
+      currentGame.day = dayNumber;
     }
 
     setApiSource('api');
@@ -133,28 +159,29 @@ export async function getDayEvent(gameId: string, dayNumber: number): Promise<Ga
 // POST /api/game/{game_id}/choice - Select choice and update parameters
 export async function submitChoice(
   gameId: string,
-  choiceIndex: number
+  choiceId: number,
+  day: number
 ): Promise<SubmitChoiceResponse> {
   if (FORCE_MOCK_API) {
-    return submitChoiceMock(gameId, choiceIndex);
+    return submitChoiceMock(gameId, choiceId, day);
   }
 
   try {
     const result = await requestWithTimeout<SubmitChoiceResponse>(`/api/game/${gameId}/choice`, {
       method: 'POST',
-      body: JSON.stringify({ choice_index: choiceIndex }),
+      body: JSON.stringify({ choice_id: choiceId, day: day }),
     });
 
     if (currentGame && currentGame.game_id === gameId) {
       currentGame.status = result.status;
-      currentGame.day += 1;
+      currentGame.day = result.status.day;
     }
 
     setApiSource('api');
     return result;
   } catch (error) {
     console.warn('submitChoice failed, using mock data', error);
-    return submitChoiceMock(gameId, choiceIndex);
+    return submitChoiceMock(gameId, choiceId, day);
   }
 }
 
@@ -180,21 +207,50 @@ export async function getGameStatus(gameId: string): Promise<GameStatus> {
 }
 
 // Mock implementations (fallback)
-async function startNewGameMock(): Promise<GameState> {
+async function startNewGameMock(params: StartGameRequest): Promise<GameState> {
   await simulateDelay();
 
+  const game_id = generateGameId();
+  const initialEvent: GameEvent = {
+    event_message: `You are ${params.character_name}, ${params.age} years old. You are ${params.work ? 'starting a new job' : 'beginning a new chapter in life'}.`,
+    choices: [
+      {
+        id: 1,
+        text: "Prepare early and tackle it head-on",
+        health_delta: 5,
+        money_delta: 0,
+        mood_delta: 10,
+      },
+      {
+        id: 2,
+        text: "Start normally with a balanced approach",
+        health_delta: 0,
+        money_delta: 0,
+        mood_delta: 5,
+      },
+      {
+        id: 3,
+        text: "Take it easy and start at your own pace",
+        health_delta: 10,
+        money_delta: -5,
+        mood_delta: 15,
+      },
+    ],
+  };
+
   const game: GameState = {
-    game_id: generateGameId(),
+    game_id: game_id,
     day: 1,
     status: {
+      game_id: game_id,
+      day: 1,
       health: 70,
-      happiness: 70,
-      money: 70,
-      energy: 70,
-      social: 70,
-      career: 70,
+      money: 400,
+      mood: 70,
+      is_over: false,
     },
-    currentEvent: null,
+    currentEvent: initialEvent,
+    params: params,
   };
 
   currentGame = game;
@@ -202,22 +258,27 @@ async function startNewGameMock(): Promise<GameState> {
   return game;
 }
 
-async function getDayEventMock(gameId: string, dayNumber: number): Promise<GameEvent> {
+async function getDayEventMock(gameId: string, dayNumber: number): Promise<DayEvent> {
   await simulateDelay();
 
   if (!currentGame || currentGame.game_id !== gameId) {
     throw new Error('Game not found');
   }
 
-  const event = generateEventForDay(dayNumber, currentGame.status);
-  currentGame.currentEvent = event;
+  const event = generateEventForDay(dayNumber);
+  currentGame.currentEvent = {
+    event_message: event.description,
+    choices: event.choices,
+  };
+  currentGame.day = dayNumber;
   setApiSource('mock');
   return event;
 }
 
 async function submitChoiceMock(
   gameId: string,
-  choiceIndex: number
+  choiceId: number,
+  day: number
 ): Promise<SubmitChoiceResponse> {
   await simulateDelay();
 
@@ -225,23 +286,30 @@ async function submitChoiceMock(
     throw new Error('Invalid game state');
   }
 
-  const statusChanges = calculateStatusChanges(currentGame.day, choiceIndex);
+  const selectedChoice = currentGame.currentEvent.choices.find(c => c.id === choiceId);
+  if (!selectedChoice) {
+    throw new Error('Invalid choice_id');
+  }
 
   const newStatus = { ...currentGame.status };
-  Object.keys(statusChanges).forEach(key => {
-    const statKey = key as keyof GameStatus;
-    newStatus[statKey] = Math.max(0, Math.min(100, newStatus[statKey] + statusChanges[statKey]));
-  });
+  newStatus.health = Math.max(0, Math.min(100, newStatus.health + (selectedChoice.health_delta || 0)));
+  newStatus.money = Math.max(0, newStatus.money + (selectedChoice.money_delta || 0));
+  newStatus.mood = Math.max(0, Math.min(100, newStatus.mood + (selectedChoice.mood_delta || 0)));
+  newStatus.day = day + 1;
+
+  // Check game over conditions
+  if (newStatus.health <= 0 || newStatus.money < 0 || newStatus.mood <= 0) {
+    newStatus.is_over = true;
+  }
 
   currentGame.status = newStatus;
-  currentGame.day += 1;
+  currentGame.day = newStatus.day;
 
-  const resultMessage = generateResultMessage(choiceIndex, statusChanges);
   setApiSource('mock');
 
   return {
     status: newStatus,
-    result_message: resultMessage,
+    applied_choice: selectedChoice,
   };
 }
 
@@ -265,314 +333,197 @@ function generateGameId(): string {
   return `game_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 }
 
-function generateEventForDay(day: number, status: GameStatus): GameEvent {
-  const events = getEventPool(day, status);
+function generateEventForDay(day: number): DayEvent {
+  const events = getEventPool();
   const selectedEvent = events[Math.floor(Math.random() * events.length)];
 
   return {
-    status: status,
-    event_message: selectedEvent.message,
-    options: selectedEvent.options,
+    day: day,
+    description: selectedEvent.description,
+    choices: selectedEvent.choices,
   };
 }
 
-function calculateStatusChanges(day: number, choiceIndex: number): GameStatus {
-  const eventType = (day % 5) + 1;
-
-  const changes: GameStatus = {
-    health: 0,
-    happiness: 0,
-    money: 0,
-    energy: 0,
-    social: 0,
-    career: 0,
-  };
-
-  switch (eventType) {
-    case 1: // Subscription event
-      if (choiceIndex === 0) {
-        changes.happiness = 8;
-        changes.money = -10;
-      } else if (choiceIndex === 1) {
-        changes.happiness = 3;
-        changes.money = 5;
-      } else if (choiceIndex === 2) {
-        changes.happiness = -2;
-        changes.money = 10;
-        changes.career = 3;
-      } else {
-        changes.money = 8;
-        changes.energy = -3;
-      }
-      break;
-
-    case 2: // Social pressure event
-      if (choiceIndex === 0) {
-        changes.social = 10;
-        changes.happiness = 8;
-        changes.money = -10;
-      } else if (choiceIndex === 1) {
-        changes.social = 5;
-        changes.money = -3;
-      } else if (choiceIndex === 2) {
-        changes.social = -5;
-        changes.money = 8;
-        changes.health = 3;
-      } else {
-        changes.social = 3;
-        changes.career = 5;
-      }
-      break;
-
-    case 3: // Work-life balance event
-      if (choiceIndex === 0) {
-        changes.career = 10;
-        changes.money = 8;
-        changes.health = -8;
-        changes.energy = -10;
-      } else if (choiceIndex === 1) {
-        changes.career = 5;
-        changes.health = 5;
-        changes.energy = 3;
-      } else if (choiceIndex === 2) {
-        changes.health = 10;
-        changes.happiness = 8;
-        changes.career = -5;
-      } else {
-        changes.energy = 8;
-        changes.health = 5;
-      }
-      break;
-
-    case 4: // Health/Wellness event
-      if (choiceIndex === 0) {
-        changes.health = 10;
-        changes.energy = 8;
-        changes.money = -8;
-      } else if (choiceIndex === 1) {
-        changes.health = 8;
-        changes.happiness = 5;
-      } else if (choiceIndex === 2) {
-        changes.money = 5;
-        changes.health = -5;
-      } else {
-        changes.energy = -3;
-        changes.career = 5;
-      }
-      break;
-
-    case 5: // Financial decision event
-      if (choiceIndex === 0) {
-        changes.money = -10;
-        changes.happiness = 10;
-        changes.social = 5;
-      } else if (choiceIndex === 1) {
-        changes.money = 5;
-        changes.happiness = 3;
-      } else if (choiceIndex === 2) {
-        changes.money = 10;
-        changes.happiness = -3;
-      } else {
-        changes.money = 8;
-        changes.career = 3;
-      }
-      break;
-  }
-
-  return changes;
-}
-
-function generateResultMessage(choiceIndex: number, changes: GameStatus): string {
-  const messages = [
-    "You chose immediate satisfaction. The happiness boost feels great, but consider the long-term impact.",
-    "A balanced approach! You're finding ways to enjoy life while protecting your resources.",
-    "You prioritized long-term benefits. It's tough now, but future you will thank you.",
-    "Strategic thinking! You're investing in areas that compound over time.",
-  ];
-
-  return messages[choiceIndex] || messages[1];
-}
-
-function getEventPool(day: number, status: GameStatus): Array<{ message: string; options: string[] }> {
+function getEventPool(): Array<{ description: string; choices: Choice[] }> {
   const eventPool = [
     {
-      message: "A premium streaming service launches with exclusive content everyone's talking about. The subscription is $15/month with a 30-day free trial.",
-      options: [
-        "Subscribe immediately - I can't miss out on this content!",
-        "Start free trial with a calendar reminder to cancel",
-        "Wait and see reviews before committing",
-        "Research free alternatives instead"
+      description: "A premium streaming service launches with exclusive content everyone's talking about. The subscription is $15/month with a 30-day free trial.",
+      choices: [
+        { id: 1, text: "Subscribe immediately - I can't miss out on this content!", health_delta: 0, money_delta: -15, mood_delta: 10 },
+        { id: 2, text: "Start free trial with a calendar reminder to cancel", health_delta: 0, money_delta: 0, mood_delta: 5 },
+        { id: 3, text: "Wait and see reviews before committing", health_delta: 0, money_delta: 0, mood_delta: -2 },
+        { id: 4, text: "Research free alternatives instead", health_delta: 0, money_delta: 5, mood_delta: -5 }
       ]
     },
     {
-      message: "Your friends are planning an expensive weekend trip. Everyone's going, but it will cost $300 and you have bills due soon.",
-      options: [
-        "Go on the trip - experiences with friends are priceless",
-        "Suggest a cheaper alternative activity instead",
-        "Skip this one and save for the next gathering",
-        "Go but set strict spending limits for yourself"
+      description: "Your friends are planning an expensive weekend trip. Everyone's going, but it will cost $300 and you have bills due soon.",
+      choices: [
+        { id: 1, text: "Go on the trip - experiences with friends are priceless", health_delta: 5, money_delta: -30, mood_delta: 15 },
+        { id: 2, text: "Suggest a cheaper alternative activity instead", health_delta: 3, money_delta: -10, mood_delta: 8 },
+        { id: 3, text: "Skip this one and save for the next gathering", health_delta: 0, money_delta: 0, mood_delta: -5 },
+        { id: 4, text: "Go but set strict spending limits for yourself", health_delta: 3, money_delta: -15, mood_delta: 5 }
       ]
     },
     {
-      message: "Your boss offers you overtime work this weekend that pays well but you're already exhausted and had plans with family.",
-      options: [
-        "Accept the overtime - the extra money is too good to pass up",
-        "Negotiate to work only one day instead of both",
-        "Decline politely and keep your plans",
-        "Accept but promise yourself a rest day next week"
+      description: "Your boss offers you overtime work this weekend that pays well but you're already exhausted and had plans with family.",
+      choices: [
+        { id: 1, text: "Accept the overtime - the extra money is too good to pass up", health_delta: -10, money_delta: 20, mood_delta: -8 },
+        { id: 2, text: "Negotiate to work only one day instead of both", health_delta: -5, money_delta: 10, mood_delta: 0 },
+        { id: 3, text: "Decline politely and keep your plans", health_delta: 5, money_delta: 0, mood_delta: 10 },
+        { id: 4, text: "Accept but promise yourself a rest day next week", health_delta: -8, money_delta: 20, mood_delta: -3 }
       ]
     },
     {
-      message: "A fitness app wants $12/month for premium features. You've been meaning to work out more, but you could also exercise for free.",
-      options: [
-        "Subscribe - investing in health is always worth it",
-        "Try the free version first for a month",
-        "Skip it and use free workout videos",
-        "Focus on diet changes instead, no app needed"
+      description: "A fitness app wants $12/month for premium features. You've been meaning to work out more, but you could also exercise for free.",
+      choices: [
+        { id: 1, text: "Subscribe - investing in health is always worth it", health_delta: 10, money_delta: -12, mood_delta: 5 },
+        { id: 2, text: "Try the free version first for a month", health_delta: 5, money_delta: 0, mood_delta: 3 },
+        { id: 3, text: "Skip it and use free workout videos", health_delta: 3, money_delta: 0, mood_delta: 0 },
+        { id: 4, text: "Focus on diet changes instead, no app needed", health_delta: 8, money_delta: 0, mood_delta: 2 }
       ]
     },
     {
-      message: "Your favorite online store has a flash sale - 60% off! You don't need anything urgently, but the deals are incredible.",
-      options: [
-        "Buy everything in your cart - these deals are rare!",
-        "Only buy one item you've wanted for a while",
-        "Save the money - sales happen all the time",
-        "Set a strict budget limit before shopping"
+      description: "Your favorite online store has a flash sale - 60% off! You don't need anything urgently, but the deals are incredible.",
+      choices: [
+        { id: 1, text: "Buy everything in your cart - these deals are rare!", health_delta: 0, money_delta: -40, mood_delta: 12 },
+        { id: 2, text: "Only buy one item you've wanted for a while", health_delta: 0, money_delta: -15, mood_delta: 8 },
+        { id: 3, text: "Save the money - sales happen all the time", health_delta: 0, money_delta: 0, mood_delta: -3 },
+        { id: 4, text: "Set a strict budget limit before shopping", health_delta: 0, money_delta: -20, mood_delta: 5 }
       ]
     },
     {
-      message: "A friend invites you to an expensive networking dinner with potential career contacts. It's $80 per person but could lead to opportunities.",
-      options: [
-        "Go and spare no expense - networking is investing in your future",
-        "Attend but order modestly to save money",
-        "Ask the friend to introduce you another way",
-        "Skip it and focus on online networking instead"
+      description: "A friend invites you to an expensive networking dinner with potential career contacts. It's $80 per person but could lead to opportunities.",
+      choices: [
+        { id: 1, text: "Go and spare no expense - networking is investing in your future", health_delta: 0, money_delta: -80, mood_delta: 8 },
+        { id: 2, text: "Attend but order modestly to save money", health_delta: 0, money_delta: -50, mood_delta: 5 },
+        { id: 3, text: "Ask the friend to introduce you another way", health_delta: 0, money_delta: 0, mood_delta: 0 },
+        { id: 4, text: "Skip it and focus on online networking instead", health_delta: 0, money_delta: 0, mood_delta: -3 }
       ]
     },
     {
-      message: "You feel burned out from work. A spa day costs $150, therapy is $100 per session, or you could take a free mental health day at home.",
-      options: [
-        "Book the spa day - I deserve this relaxation",
-        "Try one therapy session to talk things through",
-        "Take a free day off to rest at home",
-        "Push through - I'll rest when things calm down"
+      description: "You feel burned out from work. A spa day costs $150, therapy is $100 per session, or you could take a free mental health day at home.",
+      choices: [
+        { id: 1, text: "Book the spa day - I deserve this relaxation", health_delta: 15, money_delta: -150, mood_delta: 20 },
+        { id: 2, text: "Try one therapy session to talk things through", health_delta: 10, money_delta: -100, mood_delta: 15 },
+        { id: 3, text: "Take a free day off to rest at home", health_delta: 8, money_delta: 0, mood_delta: 10 },
+        { id: 4, text: "Push through - I'll rest when things calm down", health_delta: -5, money_delta: 0, mood_delta: -10 }
       ]
     },
     {
-      message: "An online course promises to boost your career skills for $299. Reviews are mixed, but some say it helped them get promotions.",
-      options: [
-        "Invest in the course - education pays off long-term",
-        "Look for free courses covering the same topics",
-        "Ask your company if they'll pay for it",
-        "Learn from free online resources like YouTube"
+      description: "An online course promises to boost your career skills for $299. Reviews are mixed, but some say it helped them get promotions.",
+      choices: [
+        { id: 1, text: "Invest in the course - education pays off long-term", health_delta: 0, money_delta: -299, mood_delta: 5 },
+        { id: 2, text: "Look for free courses covering the same topics", health_delta: 0, money_delta: 0, mood_delta: 0 },
+        { id: 3, text: "Ask your company if they'll pay for it", health_delta: 0, money_delta: 0, mood_delta: 3 },
+        { id: 4, text: "Learn from free online resources like YouTube", health_delta: 0, money_delta: 0, mood_delta: -2 }
       ]
     },
     {
-      message: "Your phone is getting slow. A new model costs $1000, repair costs $200, or you could keep using it as is.",
-      options: [
-        "Buy the new phone - I need it for work and life",
-        "Get it repaired and extend its life",
-        "Keep using it until it completely breaks",
-        "Look for a cheaper refurbished model"
+      description: "Your phone is getting slow. A new model costs $1000, repair costs $200, or you could keep using it as is.",
+      choices: [
+        { id: 1, text: "Buy the new phone - I need it for work and life", health_delta: 0, money_delta: -100, mood_delta: 15 },
+        { id: 2, text: "Get it repaired and extend its life", health_delta: 0, money_delta: -20, mood_delta: 5 },
+        { id: 3, text: "Keep using it until it completely breaks", health_delta: 0, money_delta: 0, mood_delta: -5 },
+        { id: 4, text: "Look for a cheaper refurbished model", health_delta: 0, money_delta: -40, mood_delta: 3 }
       ]
     },
     {
-      message: "It's Sunday evening and you're too tired to cook. Meal delivery is $25, frozen pizza is $8, or you could force yourself to cook what's in the fridge.",
-      options: [
-        "Order delivery - my time and energy are valuable",
-        "Quick frozen pizza - a compromise",
-        "Cook something simple from the fridge",
-        "Meal prep for the week to avoid this situation"
+      description: "It's Sunday evening and you're too tired to cook. Meal delivery is $25, frozen pizza is $8, or you could force yourself to cook what's in the fridge.",
+      choices: [
+        { id: 1, text: "Order delivery - my time and energy are valuable", health_delta: -3, money_delta: -25, mood_delta: 10 },
+        { id: 2, text: "Quick frozen pizza - a compromise", health_delta: -2, money_delta: -8, mood_delta: 5 },
+        { id: 3, text: "Cook something simple from the fridge", health_delta: 3, money_delta: 0, mood_delta: 3 },
+        { id: 4, text: "Meal prep for the week to avoid this situation", health_delta: 5, money_delta: -20, mood_delta: 0 }
       ]
     },
     {
-      message: "A gaming console you've wanted goes on sale. It's $400 now instead of $500. You'd use it for entertainment and stress relief.",
-      options: [
-        "Buy it now - $100 savings is significant",
-        "Wait for an even better deal during holidays",
-        "Put the money toward savings instead",
-        "Buy it but sell old electronics to offset cost"
+      description: "A gaming console you've wanted goes on sale. It's $400 now instead of $500. You'd use it for entertainment and stress relief.",
+      choices: [
+        { id: 1, text: "Buy it now - $100 savings is significant", health_delta: 0, money_delta: -40, mood_delta: 20 },
+        { id: 2, text: "Wait for an even better deal during holidays", health_delta: 0, money_delta: 0, mood_delta: -5 },
+        { id: 3, text: "Put the money toward savings instead", health_delta: 0, money_delta: 0, mood_delta: -8 },
+        { id: 4, text: "Buy it but sell old electronics to offset cost", health_delta: 0, money_delta: -20, mood_delta: 15 }
       ]
     },
     {
-      message: "Your car needs maintenance: $500 now for prevention, or wait and risk a $2000 repair later. You're low on funds this month.",
-      options: [
-        "Do the maintenance now - prevention saves money",
-        "Do only the most critical maintenance for $250",
-        "Wait until next month when you have more money",
-        "Get a second opinion to confirm what's needed"
+      description: "Your car needs maintenance: $500 now for prevention, or wait and risk a $2000 repair later. You're low on funds this month.",
+      choices: [
+        { id: 1, text: "Do the maintenance now - prevention saves money", health_delta: 0, money_delta: -50, mood_delta: -5 },
+        { id: 2, text: "Do only the most critical maintenance for $250", health_delta: 0, money_delta: -25, mood_delta: -3 },
+        { id: 3, text: "Wait until next month when you have more money", health_delta: 0, money_delta: 0, mood_delta: -10 },
+        { id: 4, text: "Get a second opinion to confirm what's needed", health_delta: 0, money_delta: -5, mood_delta: 0 }
       ]
     },
     {
-      message: "A family member asks to borrow $200. They've borrowed before and always pay back, but it's slow. You were saving that money.",
-      options: [
-        "Lend it - family comes first always",
-        "Lend half and explain your own budget constraints",
-        "Decline politely and suggest other resources",
-        "Give it as a gift with no expectation of return"
+      description: "A family member asks to borrow $200. They've borrowed before and always pay back, but it's slow. You were saving that money.",
+      choices: [
+        { id: 1, text: "Lend it - family comes first always", health_delta: 0, money_delta: -20, mood_delta: 5 },
+        { id: 2, text: "Lend half and explain your own budget constraints", health_delta: 0, money_delta: -10, mood_delta: 3 },
+        { id: 3, text: "Decline politely and suggest other resources", health_delta: 0, money_delta: 0, mood_delta: -5 },
+        { id: 4, text: "Give it as a gift with no expectation of return", health_delta: 0, money_delta: -20, mood_delta: 8 }
       ]
     },
     {
-      message: "Your company offers a 401k match but you'd have to reduce your take-home pay by $100/month. You're already feeling financially tight.",
-      options: [
-        "Enroll - free money from employer is too good to miss",
-        "Start with minimum contribution to get some match",
-        "Wait until you have more financial breathing room",
-        "Enroll and cut other expenses to make up difference"
+      description: "Your company offers a 401k match but you'd have to reduce your take-home pay by $100/month. You're already feeling financially tight.",
+      choices: [
+        { id: 1, text: "Enroll - free money from employer is too good to miss", health_delta: 0, money_delta: -10, mood_delta: 5 },
+        { id: 2, text: "Start with minimum contribution to get some match", health_delta: 0, money_delta: -5, mood_delta: 3 },
+        { id: 3, text: "Wait until you have more financial breathing room", health_delta: 0, money_delta: 0, mood_delta: -3 },
+        { id: 4, text: "Enroll and cut other expenses to make up difference", health_delta: 0, money_delta: -10, mood_delta: 0 }
       ]
     },
     {
-      message: "You're invited to a conference in your field. Registration is $300, travel $400. It could boost your career but it's expensive.",
-      options: [
-        "Go - career advancement is worth the investment",
-        "Go but look for ways to minimize travel costs",
-        "Skip it and watch if they post sessions online",
-        "Ask your employer if they'll cover any costs"
+      description: "You're invited to a conference in your field. Registration is $300, travel $400. It could boost your career but it's expensive.",
+      choices: [
+        { id: 1, text: "Go - career advancement is worth the investment", health_delta: 0, money_delta: -70, mood_delta: 10 },
+        { id: 2, text: "Go but look for ways to minimize travel costs", health_delta: -3, money_delta: -40, mood_delta: 5 },
+        { id: 3, text: "Skip it and watch if they post sessions online", health_delta: 0, money_delta: 0, mood_delta: -5 },
+        { id: 4, text: "Ask your employer if they'll cover any costs", health_delta: 0, money_delta: 0, mood_delta: 3 }
       ]
     },
     {
-      message: "A limited edition collectible you love is available for $200. It will likely increase in value, but you don't need it.",
-      options: [
-        "Buy it - it's an investment that will appreciate",
-        "Buy it only if you truly love it, not for profit",
-        "Skip it - collectibles are unpredictable investments",
-        "Set a price alert and revisit in a month"
+      description: "A limited edition collectible you love is available for $200. It will likely increase in value, but you don't need it.",
+      choices: [
+        { id: 1, text: "Buy it - it's an investment that will appreciate", health_delta: 0, money_delta: -20, mood_delta: 15 },
+        { id: 2, text: "Buy it only if you truly love it, not for profit", health_delta: 0, money_delta: -20, mood_delta: 10 },
+        { id: 3, text: "Skip it - collectibles are unpredictable investments", health_delta: 0, money_delta: 0, mood_delta: -5 },
+        { id: 4, text: "Set a price alert and revisit in a month", health_delta: 0, money_delta: 0, mood_delta: 0 }
       ]
     },
     {
-      message: "You've been eating out for lunch daily ($12/day). Making lunch at home saves money but takes morning time you don't have.",
-      options: [
-        "Keep eating out - my time is more valuable",
-        "Meal prep on Sundays to have quick lunches",
-        "Pack simple lunches like sandwiches",
-        "Alternate - eat out 2-3 times, pack the rest"
+      description: "You've been eating out for lunch daily ($12/day). Making lunch at home saves money but takes morning time you don't have.",
+      choices: [
+        { id: 1, text: "Keep eating out - my time is more valuable", health_delta: -5, money_delta: -12, mood_delta: 5 },
+        { id: 2, text: "Meal prep on Sundays to have quick lunches", health_delta: 5, money_delta: -3, mood_delta: 3 },
+        { id: 3, text: "Pack simple lunches like sandwiches", health_delta: 3, money_delta: -2, mood_delta: 0 },
+        { id: 4, text: "Alternate - eat out 2-3 times, pack the rest", health_delta: 0, money_delta: -7, mood_delta: 5 }
       ]
     },
     {
-      message: "Your lease is ending. A nicer apartment costs $200 more/month but is closer to work, saving 1 hour of commute daily.",
-      options: [
-        "Take the nicer place - time saved is worth money",
-        "Calculate exact cost of time vs money before deciding",
-        "Stay in current place and invest the $200/month",
-        "Negotiate with current landlord for better terms"
+      description: "Your lease is ending. A nicer apartment costs $200 more/month but is closer to work, saving 1 hour of commute daily.",
+      choices: [
+        { id: 1, text: "Take the nicer place - time saved is worth money", health_delta: 10, money_delta: -20, mood_delta: 15 },
+        { id: 2, text: "Calculate exact cost of time vs money before deciding", health_delta: 0, money_delta: 0, mood_delta: 0 },
+        { id: 3, text: "Stay in current place and invest the $200/month", health_delta: -5, money_delta: 20, mood_delta: -5 },
+        { id: 4, text: "Negotiate with current landlord for better terms", health_delta: 0, money_delta: 0, mood_delta: 3 }
       ]
     },
     {
-      message: "A charity you care about asks for donations. You want to help but you're working on building your emergency fund.",
-      options: [
-        "Donate $50 - giving back is important regardless",
-        "Donate $20 - something is better than nothing",
-        "Skip for now - secure yourself first before helping others",
-        "Volunteer time instead of money"
+      description: "A charity you care about asks for donations. You want to help but you're working on building your emergency fund.",
+      choices: [
+        { id: 1, text: "Donate $50 - giving back is important regardless", health_delta: 0, money_delta: -50, mood_delta: 10 },
+        { id: 2, text: "Donate $20 - something is better than nothing", health_delta: 0, money_delta: -20, mood_delta: 5 },
+        { id: 3, text: "Skip for now - secure yourself first before helping others", health_delta: 0, money_delta: 0, mood_delta: -3 },
+        { id: 4, text: "Volunteer time instead of money", health_delta: 5, money_delta: 0, mood_delta: 8 }
       ]
     },
     {
-      message: "You're exhausted and considering hiring a cleaning service for $100/month. It would free up 4 hours but feels indulgent.",
-      options: [
-        "Hire the service - buying back time is valuable",
-        "Try it for 2 months to evaluate the value",
-        "Clean less frequently instead of hiring help",
-        "Keep doing it yourself - it's exercise anyway"
+      description: "You're exhausted and considering hiring a cleaning service for $100/month. It would free up 4 hours but feels indulgent.",
+      choices: [
+        { id: 1, text: "Hire the service - buying back time is valuable", health_delta: 5, money_delta: -10, mood_delta: 10 },
+        { id: 2, text: "Try it for 2 months to evaluate the value", health_delta: 3, money_delta: -10, mood_delta: 5 },
+        { id: 3, text: "Clean less frequently instead of hiring help", health_delta: -3, money_delta: 0, mood_delta: -5 },
+        { id: 4, text: "Keep doing it yourself - it's exercise anyway", health_delta: 3, money_delta: 0, mood_delta: -3 }
       ]
     },
   ];
