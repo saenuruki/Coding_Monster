@@ -4,7 +4,7 @@ import random
 
 from . import models
 from . import init_db
-from .llm.event_generator import llm_generate_event
+from .llm.event_generator import generate_event
 
 # TODO: Add to a database or other persistent store
 games: dict[str, models.Game] = {}
@@ -75,7 +75,7 @@ def start_game(
     game_state = get_full_game(db, new_game)
 
     # 4. Generate the first event using the LLM
-    event = llm_generate_event(game_state)
+    event = generate_event(game_state)
     # The active_events dictionary is no longer needed with the new flow.
     # active_events[game_id] = event 
 
