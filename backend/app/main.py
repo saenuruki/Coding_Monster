@@ -134,7 +134,7 @@ async def start_game(body: StartGameRequest, db: Session = Depends(get_db)):
     
     event = call_llm_for_start(body)
 
-    games[game_id] = GameState(game_id=game_id, params=body, event=event)
+    games[game.id] = GameState(game_id=game.id, params=body, event=event)
 
     return StartGameResponse(
         game_id=game.id,
