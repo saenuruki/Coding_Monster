@@ -96,8 +96,9 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
 
     try {
       setLoading(true);
-      
-      const result = await submitChoice(gameState.game_id, choiceIndex, gameState.day);
+
+      const selectedChoice = currentEvent.choices[choiceIndex];
+      const result = await submitChoice(gameState.game_id, selectedChoice.impact);
       updateApiSource();
       setErrorMessage(null);
       
