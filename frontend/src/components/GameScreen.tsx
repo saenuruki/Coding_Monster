@@ -207,7 +207,7 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
 
   return (
     <div 
-      className="min-h-screen flex items-center justify-center p-4 relative"
+      className="min-h-screen h-screen flex items-center justify-end p-4 relative overflow-hidden"
       style={{
         backgroundImage: `url(${backgroundImage})`,
         backgroundSize: 'cover',
@@ -216,10 +216,10 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
       }}
     >
       {/* Overlay for better readability */}
-      <div className="absolute inset-0 bg-black/30" />
+      <div className="absolute inset-0 bg-black/30 pointer-events-none" />
       
-      {/* Content */}
-      <div className="relative z-10">
+      {/* Content - Scrollable Container */}
+      <div className="relative z-10 w-full max-w-2xl lg:w-1/2 lg:max-w-none h-full overflow-y-auto py-8">
         <GamePlayPanel
           gameState={gameState}
           apiSource={apiSource}
