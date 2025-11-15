@@ -5,7 +5,7 @@ from typing import List
 import sqlite3
 from sqlalchemy.orm import Session
 from init_db import SessionLocal, User, Game, Day, init_db 
-from model import *
+from models import *
 
 app = FastAPI()
 conn = sqlite3.connect("mydb.sqlite")

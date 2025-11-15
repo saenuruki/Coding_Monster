@@ -4,6 +4,7 @@ Generates day-based events with choices and parameter impacts.
 """
 
 from .gemini_client import generate_response
+from .prompts import build_event_prompt
 
 
 def generate_event(day: int) -> dict:
@@ -147,7 +148,6 @@ def generate_event(day: int) -> dict:
     if day in mock_events:
         return mock_events[day]
 
-    # For days not in mock_events, use a generic event
-    # In the future, this will call the LLM
-    prompt = f"Generate event for day {day}"
+    # For days not in mock_events, use LLM
+    prompt = build_event_prompt(day)
     return generate_response(prompt)
