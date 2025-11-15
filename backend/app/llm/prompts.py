@@ -3,7 +3,7 @@ Prompt templates for LLM event generation.
 """
 
 import os
-from .schemas_tmp import Event
+from app.models import Event
 
 
 def load_scenario_strategy() -> str:
@@ -23,16 +23,23 @@ def get_system_prompt() -> str:
     schema = get_json_schema()
 
     base_prompt = f"""You are a creative storyteller for a life simulation game.
-Generate realistic daily life events with 3 meaningful choices.
-Each choice should have impacts on 6 parameters: health, happiness, money, energy, social, career.
-Impact values range from -10 to +10.
+Generate realistic daily life events with multiple meaningful choices.
+Each choice should have impacts on the following parameters:
+- health (0-100): physical well-being
+- happiness (0-100): emotional well-being
+- stress (0-100): stress level
+- reputation (-100 to 100): social standing
+- education (0+): education level
+- money (EUR): available cash
+- weekly_income (EUR): regular income per week
+- weekly_expense (EUR): regular expenses per week
+- free_time (hours/week): available free time
 
 Return the response in the following JSON format:
 {schema}
 
 Make sure:
-- All choices have exactly 3 elements (id: 1, 2, 3)
-- Impact values must be integers between -10 and +10
+- All impacts are within valid ranges
 - Description is engaging and reflects the current day"""
 
     strategy = load_scenario_strategy()
@@ -57,17 +64,10 @@ Current game state:
 - Day: {day}
 
 Generate a realistic daily event for day {day}.
-Provide 3 meaningful choices with appropriate parameter impacts."""
+Provide meaningful choices with appropriate parameter impacts."""
 
     return prompt
 
 
 # Parameter names
-PARAMETERS = ["health", "happiness", "money", "energy", "social", "career"]
-
-# Impact range
-MIN_IMPACT = -10
-MAX_IMPACT = 10
-
-# Number of choices per event
-NUM_CHOICES = 3
+PARAMETERS = ["health", "happiness", "stress", "reputation", "education", "money", "weekly_income", "weekly_expense", "free_time"]
