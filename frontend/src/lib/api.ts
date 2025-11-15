@@ -1,5 +1,100 @@
 // Mock API functions for game backend with live API fallback
 
+// Backend API Models (based on backend/app/models.py)
+export interface Impact {
+  health: number;
+  happiness: number;
+  stress: number;
+  reputation: number;
+  education: number;
+  money: number;
+  weekly_income: number;
+  weekly_expense: number;
+  free_time: number;
+}
+
+export interface EventOption {
+  description: string;
+  impact: Impact;
+}
+
+export interface Event {
+  event_id: number;
+  description: string;
+  options: EventOption[];
+}
+
+export interface StaticProperties {
+  character_name: string;
+  gender: string;
+  age: number;
+  work: boolean;
+  character_avatar: string | null;
+}
+
+export interface Stats {
+  health: number;
+  happiness: number;
+  stress: number;
+  reputation: number;
+  education: number;
+  money: number;
+  weekly_income: number;
+  weekly_expense: number;
+  free_time: number;
+}
+
+export interface Income {
+  source: string;
+  amount: number;
+}
+
+export interface Expense {
+  category: string;
+  amount: number;
+}
+
+export interface SavingsAccount {
+  balance: number;
+  interest_rate: number;
+}
+
+export interface Finances {
+  incomes: Income[];
+  expenses: Expense[];
+  savings_account: SavingsAccount | null;
+}
+
+export interface Game {
+  user_id: number;
+  game_id: string;
+  day: number;
+  static_properties: StaticProperties;
+  stats: Stats;
+  finances: Finances;
+}
+
+export interface StartGameRequest {
+  age: number;
+  gender: string;
+  character_name: string;
+  work: boolean;
+}
+
+export interface StartGameResponse {
+  game_state: Game;
+  event: Event;
+}
+
+export interface ChoiceRequest {
+  impact: Impact;
+}
+
+export interface ChoiceResponse {
+  game_state: Game;
+}
+
+// Legacy interfaces for compatibility
 export interface GameStatus {
   game_id: string;
   day: number;
@@ -12,7 +107,7 @@ export interface GameStatus {
 export interface Choice {
   id: number;
   text: string;
-  impact?: number;
+  impact?: Impact;
   health_delta?: number;
   money_delta?: number;
   mood_delta?: number;
@@ -23,18 +118,6 @@ export interface GameEvent {
   choices: Choice[];
 }
 
-export interface StartGameRequest {
-  age: number;
-  gender: string;
-  character_name: string;
-  work: boolean;
-}
-
-export interface StartGameResponse {
-  game_id: string;
-  event: GameEvent;
-}
-
 export interface GameState {
   game_id: string;
   day: number;
@@ -43,6 +126,9 @@ export interface GameState {
   params: StartGameRequest;
   time_allocation: number;
   max_time_allocation: number;
+  // New fields from backend API
+  game?: Game;
+  currentBackendEvent?: Event;
 }
 
 export interface DayEvent {
@@ -61,7 +147,7 @@ type ApiSource = 'api' | 'mock';
 let currentGame: GameState | null = null;
 let lastResponseSource: ApiSource = 'api';
 
-const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? 'https://sample.com';
+const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? 'http://localhost:8000';
 const FORCE_MOCK_API = (import.meta as any).env?.VITE_USE_MOCK_API === 'true';
 const API_TIMEOUT = 3000;
 
@@ -97,33 +183,45 @@ async function requestWithTimeout<T>(path: string, options: RequestInit = {}): P
   }
 }
 
-// POST /api/game/start - Start new game
+// POST /game - Start new game
 export async function startNewGame(params: StartGameRequest): Promise<GameState> {
   if (FORCE_MOCK_API) {
     return startNewGameMock(params);
   }
 
   try {
-    const data = await requestWithTimeout<StartGameResponse>('/api/game/start', {
+    const data = await requestWithTimeout<StartGameResponse>('/game', {
       method: 'POST',
       body: JSON.stringify(params),
     });
 
+    // Convert backend Event to frontend GameEvent format
+    const currentEvent: GameEvent = {
+      event_message: data.event.description,
+      choices: data.event.options.map((option, index) => ({
+        id: index + 1,
+        text: option.description,
+        impact: option.impact,
+      })),
+    };
+
     const game: GameState = {
-      game_id: data.game_id,
-      day: 1,
+      game_id: data.game_state.game_id,
+      day: data.game_state.day,
       status: {
-        game_id: data.game_id,
-        day: 1,
-        health: 70,
-        money: 400,
-        mood: 70,
+        game_id: data.game_state.game_id,
+        day: data.game_state.day,
+        health: data.game_state.stats.health,
+        money: data.game_state.stats.money,
+        mood: data.game_state.stats.happiness,
         is_over: false,
       },
-      currentEvent: data.event,
+      currentEvent: currentEvent,
       params: params,
-      time_allocation: 8,
-      max_time_allocation: 8,
+      time_allocation: data.game_state.stats.free_time,
+      max_time_allocation: data.game_state.stats.free_time,
+      game: data.game_state,
+      currentBackendEvent: data.event,
     };
 
     currentGame = game;
@@ -135,79 +233,93 @@ export async function startNewGame(params: StartGameRequest): Promise<GameState>
   }
 }
 
-// GET /api/game/{game_id}/day/{day_number} - Get event for specified day
+// NOTE: This endpoint does not exist in the actual backend API
+// Events are returned together with game state after each choice
+// This function is kept for legacy/mock support only
 export async function getDayEvent(gameId: string, dayNumber: number): Promise<DayEvent> {
-  if (FORCE_MOCK_API) {
-    return getDayEventMock(gameId, dayNumber);
-  }
-
-  try {
-    const event = await requestWithTimeout<DayEvent>(`/api/game/${gameId}/day/${dayNumber}`);
-
-    if (currentGame && currentGame.game_id === gameId) {
-      currentGame.currentEvent = {
-        event_message: event.description,
-        choices: event.choices,
-      };
-      currentGame.day = dayNumber;
-    }
-
-    setApiSource('api');
-    return event;
-  } catch (error) {
-    console.warn('getDayEvent failed, using mock data', error);
-    return getDayEventMock(gameId, dayNumber);
-  }
+  // Always use mock for this since it doesn't exist in real API
+  return getDayEventMock(gameId, dayNumber);
 }
 
-// POST /api/game/{game_id}/choice - Select choice and update parameters
+// POST /game/{game_id}/choice - Select choice and update parameters
 export async function submitChoice(
   gameId: string,
-  choiceId: number,
-  day: number
+  impact: Impact
 ): Promise<SubmitChoiceResponse> {
   if (FORCE_MOCK_API) {
-    return submitChoiceMock(gameId, choiceId, day);
+    // For mock, we need to find the choice by impact - just pass the first choice for now
+    return submitChoiceMock(gameId, 1, currentGame?.day || 1);
   }
 
   try {
-    const result = await requestWithTimeout<SubmitChoiceResponse>(`/api/game/${gameId}/choice`, {
+    const data = await requestWithTimeout<ChoiceResponse>(`/game/${gameId}/choice`, {
       method: 'POST',
-      body: JSON.stringify({ choice_id: choiceId, day: day }),
+      body: JSON.stringify({ impact }),
     });
 
+    // Update current game state
     if (currentGame && currentGame.game_id === gameId) {
-      currentGame.status = result.status;
-      currentGame.day = result.status.day;
+      currentGame.game = data.game_state;
+      currentGame.day = data.game_state.day;
+      currentGame.status = {
+        game_id: data.game_state.game_id,
+        day: data.game_state.day,
+        health: data.game_state.stats.health,
+        money: data.game_state.stats.money,
+        mood: data.game_state.stats.happiness,
+        is_over: false, // TODO: Determine game over conditions
+      };
     }
+
+    // Convert to legacy response format
+    const result: SubmitChoiceResponse = {
+      status: {
+        game_id: data.game_state.game_id,
+        day: data.game_state.day,
+        health: data.game_state.stats.health,
+        money: data.game_state.stats.money,
+        mood: data.game_state.stats.happiness,
+        is_over: false,
+      },
+      applied_choice: {
+        id: 0,
+        text: "Selected choice",
+        impact: impact,
+      },
+    };
 
     setApiSource('api');
     return result;
   } catch (error) {
     console.warn('submitChoice failed, using mock data', error);
-    return submitChoiceMock(gameId, choiceId, day);
+    return submitChoiceMock(gameId, 1, currentGame?.day || 1);
   }
 }
 
-// GET /api/game/{game_id}/status - Get current status
-export async function getGameStatus(gameId: string): Promise<GameStatus> {
-  if (FORCE_MOCK_API) {
-    return getGameStatusMock(gameId);
-  }
-
-  try {
-    const status = await requestWithTimeout<GameStatus>(`/api/game/${gameId}/status`);
-
-    if (currentGame && currentGame.game_id === gameId) {
-      currentGame.status = status;
+// Legacy function for backward compatibility
+export async function submitChoiceLegacy(
+  gameId: string,
+  choiceId: number,
+  day: number
+): Promise<SubmitChoiceResponse> {
+  // Find the impact from current event
+  if (currentGame?.currentEvent) {
+    const choice = currentGame.currentEvent.choices.find(c => c.id === choiceId);
+    if (choice?.impact) {
+      return submitChoice(gameId, choice.impact);
     }
-
-    setApiSource('api');
-    return status;
-  } catch (error) {
-    console.warn('getGameStatus failed, using mock data', error);
-    return getGameStatusMock(gameId);
   }
+  
+  // Fallback to mock
+  return submitChoiceMock(gameId, choiceId, day);
+}
+
+// NOTE: This endpoint does not exist in the actual backend API
+// Game status is included in the game_state response from choice endpoint
+// This function is kept for legacy/mock support only
+export async function getGameStatus(gameId: string): Promise<GameStatus> {
+  // Always use mock for this since it doesn't exist in real API
+  return getGameStatusMock(gameId);
 }
 
 // Mock implementations (fallback)
@@ -224,6 +336,17 @@ async function startNewGameMock(params: StartGameRequest): Promise<GameState> {
         health_delta: 5,
         money_delta: 0,
         mood_delta: 10,
+        impact: {
+          health: 5,
+          happiness: 10,
+          stress: 0,
+          reputation: 0,
+          education: 0,
+          money: 0,
+          weekly_income: 0,
+          weekly_expense: 0,
+          free_time: 0,
+        },
       },
       {
         id: 2,
@@ -231,6 +354,17 @@ async function startNewGameMock(params: StartGameRequest): Promise<GameState> {
         health_delta: 0,
         money_delta: 0,
         mood_delta: 5,
+        impact: {
+          health: 0,
+          happiness: 5,
+          stress: 0,
+          reputation: 0,
+          education: 0,
+          money: 0,
+          weekly_income: 0,
+          weekly_expense: 0,
+          free_time: 0,
+        },
       },
       {
         id: 3,
@@ -238,6 +372,17 @@ async function startNewGameMock(params: StartGameRequest): Promise<GameState> {
         health_delta: 10,
         money_delta: -5,
         mood_delta: 15,
+        impact: {
+          health: 10,
+          happiness: 15,
+          stress: 0,
+          reputation: 0,
+          education: 0,
+          money: -5,
+          weekly_income: 0,
+          weekly_expense: 0,
+          free_time: 0,
+        },
       },
     ],
   };
@@ -272,13 +417,28 @@ async function getDayEventMock(gameId: string, dayNumber: number): Promise<DayEv
   }
 
   const event = generateEventForDay(dayNumber);
+  
+  // Ensure all choices have impact objects
+  const choicesWithImpact = event.choices.map(choice => ({
+    ...choice,
+    impact: choice.impact || deltaToImpact(
+      choice.health_delta,
+      choice.money_delta,
+      choice.mood_delta
+    ),
+  }));
+
   currentGame.currentEvent = {
     event_message: event.description,
-    choices: event.choices,
+    choices: choicesWithImpact,
   };
   currentGame.day = dayNumber;
   setApiSource('mock');
-  return event;
+  
+  return {
+    ...event,
+    choices: choicesWithImpact,
+  };
 }
 
 async function submitChoiceMock(
@@ -296,6 +456,13 @@ async function submitChoiceMock(
   if (!selectedChoice) {
     throw new Error('Invalid choice_id');
   }
+
+  // Ensure the choice has an impact object
+  const impact = selectedChoice.impact || deltaToImpact(
+    selectedChoice.health_delta,
+    selectedChoice.money_delta,
+    selectedChoice.mood_delta
+  );
 
   const newStatus = { ...currentGame.status };
   newStatus.health = Math.max(0, Math.min(100, newStatus.health + (selectedChoice.health_delta || 0)));
@@ -315,7 +482,10 @@ async function submitChoiceMock(
 
   return {
     status: newStatus,
-    applied_choice: selectedChoice,
+    applied_choice: {
+      ...selectedChoice,
+      impact: impact,
+    },
   };
 }
 
@@ -339,14 +509,43 @@ function generateGameId(): string {
   return `game_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 }
 
+// Helper function to convert legacy delta format to Impact format
+function deltaToImpact(
+  health_delta?: number,
+  money_delta?: number,
+  mood_delta?: number
+): Impact {
+  return {
+    health: health_delta || 0,
+    happiness: mood_delta || 0,
+    stress: 0,
+    reputation: 0,
+    education: 0,
+    money: money_delta || 0,
+    weekly_income: 0,
+    weekly_expense: 0,
+    free_time: 0,
+  };
+}
+
 function generateEventForDay(day: number): DayEvent {
   const events = getEventPool();
   const selectedEvent = events[Math.floor(Math.random() * events.length)];
 
+  // Add impact to choices if not present
+  const choicesWithImpact = selectedEvent.choices.map(choice => ({
+    ...choice,
+    impact: choice.impact || deltaToImpact(
+      choice.health_delta,
+      choice.money_delta,
+      choice.mood_delta
+    ),
+  }));
+
   return {
     day: day,
     description: selectedEvent.description,
-    choices: selectedEvent.choices,
+    choices: choicesWithImpact,
   };
 }
 
