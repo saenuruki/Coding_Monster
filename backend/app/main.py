@@ -99,7 +99,6 @@ def call_llm_for_start(payload: StartGameRequest) -> GameEvent:
 
 @app.post("/api/game/start", response_model=StartGameResponse)
 async def start_game(body: StartGameRequest, db: Session = Depends(get_db)):
-    game_id = str(uuid.uuid4())
     user = User()
     db.add(user)
     db.flush()
@@ -138,7 +137,7 @@ async def start_game(body: StartGameRequest, db: Session = Depends(get_db)):
     games[game_id] = GameState(game_id=game_id, params=body, event=event)
 
     return StartGameResponse(
-        game_id=game_id,
+        game_id=game.id,
         event=event
     )
 
