@@ -1,28 +1,25 @@
 import uuid
-
-from fastapi import FastAPI, HTTPException
+import random
+from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List
 import sqlite3
+from sqlalchemy.orm import Session
+from init_db import SessionLocal, User, Game, Day, init_db 
 
 app = FastAPI()
 conn = sqlite3.connect("mydb.sqlite")
-cursor = conn.cursor()
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS users (
-    id      INTEGER PRIMARY KEY AUTOINCREMENT,
-)
-""")
 
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS game (
-    id      INTEGER PRIMARY KEY AUTOINCREMENT,
-    character_name    TEXT NOT NULL,
-    age     INTEGER,
-    work   BOOLEAN,
-    user_id INTEGER KEY
-)
-""")
+class GameSchema(BaseModel):
+    id: int
+    age: int
+    gender: str
+    character_name: str
+    work: bool
+    user_id: int
+
+    class Config:
+        from_attributes = True  
 
 class GameStatus(BaseModel):
     user_id: int
@@ -81,6 +78,16 @@ class GameState:
 
 games: dict[str, GameState] = {}
 
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+@app.on_event("startup")
+def on_startup():
+    init_db()
 
 def get_day_event(game: GameState, day_number: int) -> DayEvent:
     if day_number != game.day:
@@ -156,23 +163,45 @@ def call_llm_for_start(payload: StartGameRequest) -> GameEvent:
     return GameEvent(event_message=event_message, choices=choices)
 
 @app.post("/api/game/start", response_model=StartGameResponse)
-async def start_game(body: StartGameRequest):
-    # 1. генерируем game_id
+async def start_game(body: StartGameRequest, db: Session = Depends(get_db)):
     game_id = str(uuid.uuid4())
-    cursor.execute(
-        "INSERT INTO users (name, age, email) VALUES (?, ?, ?)",
-        ("Yana", 23, "yana@example.com")
+    user = User()
+    db.add(user)
+    db.flush()
+    game = Game(
+        age=body.age,
+        gender=body.gender,
+        character_name=body.character_name,
+        work=body.work,
+        user_id=user.id,
     )
+    db.add(game)
+    db.flush()
+    initial_day = Day(
+        game_id=game.id,
+        number_of_day=1,
+        health=random.randint(60, 90),
+        happiness=random.randint(60, 90),
+        stress=random.randint(60, 90),
+        reputation=random.randint(60, 90),
+        education=random.randint(60, 90),
+        money=400,
+        weekly_income=random.randint(60, 90),
+        weekly_expense=random.randint(60, 90),
+        free_time=10,
+    )
+    db.add(initial_day)
 
-    # 3. Сохраняем изменения
-    conn.commit()
-    # 2. вызываем LLM, чтобы получить первый ивент
+    db.commit()
+
+    db.refresh(user)
+    db.refresh(game)
+    db.refresh(initial_day)
+    
     event = call_llm_for_start(body)
 
-    # 3. сохраняем состояние игры (если нужно)
     games[game_id] = GameState(game_id=game_id, params=body, event=event)
 
-    # 4. отдаём ответ на фронтенд
     return StartGameResponse(
         game_id=game_id,
         event=event
