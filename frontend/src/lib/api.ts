@@ -20,6 +20,8 @@ export interface GameState {
   day: number;
   status: GameStatus;
   currentEvent: GameEvent | null;
+  time_allocation: number;
+  max_time_allocation: number;
 }
 
 type SubmitChoiceResponse = {
@@ -90,6 +92,8 @@ export async function startNewGame(): Promise<GameState> {
       day: data.day,
       status: data.status,
       currentEvent: null,
+      time_allocation: 8,
+      max_time_allocation: 8,
     };
 
     currentGame = game;
@@ -116,6 +120,8 @@ export async function getDayEvent(gameId: string, dayNumber: number): Promise<Ga
         day: dayNumber,
         status: event.status,
         currentEvent: event,
+        time_allocation: 8,
+        max_time_allocation: 8,
       };
     } else {
       currentGame.currentEvent = event;
@@ -195,6 +201,8 @@ async function startNewGameMock(): Promise<GameState> {
       career: 70,
     },
     currentEvent: null,
+    time_allocation: 8,
+    max_time_allocation: 8,
   };
 
   currentGame = game;
