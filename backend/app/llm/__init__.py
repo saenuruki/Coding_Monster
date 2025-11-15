@@ -2,7 +2,7 @@
 LLM module for event generation and parameter calculation.
 """
 
-from .gemini_client import GeminiClient
-from .event_generator import EventGenerator
+from .gemini_client import generate_response
+from .event_generator import generate_event
 
-__all__ = ["GeminiClient", "EventGenerator"]
+__all__ = ["generate_response", "generate_event"]
