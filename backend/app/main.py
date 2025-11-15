@@ -6,6 +6,7 @@ import sqlite3
 from sqlalchemy.orm import Session
 from init_db import SessionLocal, User, Game, Day, init_db 
 from models import *
+from llm.event_generator import generate_event
 
 app = FastAPI()
 conn = sqlite3.connect("mydb.sqlite")
@@ -24,78 +25,36 @@ def get_db():
 def on_startup():
     init_db()
 
-def get_day_event(game: GameState, day_number: int) -> DayEvent:
-    if day_number != game.day:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Сейчас день {game.day}, нельзя запрашивать событие для дня {day_number}"
-        )
+# NEED!
+# def apply_choice(game: GameState, choice: Choice):
+#     game.health += choice.health_delta
+#     game.money += choice.money_delta
+#     game.mood += choice.mood_delta
 
-    description = f"День {day_number}: ты просыпаешься и решаешь, чем заняться."
+#     if game.health <= 0 or game.money < -50 or game.mood <= -20:
+#         game.is_over = True
 
-    choices = [
-        Choice(
-            id=1,
-            text="Пойти работать (деньги ↑, настроение ↓)",
-            money_delta=+20,
-            mood_delta=-10,
-        ),
-        Choice(
-            id=2,
-            text="Отдохнуть (настроение ↑, деньги ↓)",
-            money_delta=-10,
-            mood_delta=+15,
-        ),
-        Choice(
-            id=3,
-            text="Позаниматься спортом (здоровье ↑, настроение ↑, деньги 0)",
-            health_delta=+10,
-            mood_delta=+5,
-        ),
-    ]
-
-    return DayEvent(day=day_number, description=description, choices=choices)
+#     if not game.is_over:
+#         game.day += 1
 
 
-def apply_choice(game: GameState, choice: Choice):
-    game.health += choice.health_delta
-    game.money += choice.money_delta
-    game.mood += choice.mood_delta
+# def to_status(game: GameState) -> GameStatus:
+#     return Game(
+#         game_id=game_id,
+#         day=game.day,
+#         health=game.health,
+#         money=game.money,
+#         mood=game.mood,
+#         is_over=game.is_over,
+#     )
 
-    if game.health <= 0 or game.money < -50 or game.mood <= -20:
-        game.is_over = True
+def call_llm_for_start(dayNumber: int, game_id:int) -> Event:
+    return Event(game_id=game_id, event=generate_event(dayNumber))
 
-    if not game.is_over:
-        game.day += 1
-
-
-def to_status(game: GameState) -> GameStatus:
-    return GameStatus(
-        game_id=game.game_id,
-        day=game.day,
-        health=game.health,
-        money=game.money,
-        mood=game.mood,
-        is_over=game.is_over,
-    )
-
-def call_llm_for_start(payload: StartGameRequest) -> GameEvent:
-    'Delete code here and add llm module response generation'
-
-    event_message = (
-        f"Тебе {payload.age} лет, тебя зовут {payload.character_name}. "
-        f"Сегодня твой первый день {'на новой работе' if payload.work else 'без работы'}. "
-        f"Как ты поступишь?"
-    )
-
-    choices = [
-        Choice(id=1, text="Пойти на работу пораньше и подготовиться.", impact=10),
-        Choice(id=2, text="Выспаться и прийти ровно к началу рабочего дня.", impact=0),
-        Choice(id=3, text="Опоздать и зайти тихо, надеясь, что никто не заметит.", impact=-5),
-        Choice(id=4, text="Сделать вид, что заболел(а), и остаться дома.", impact=-10),
-    ]
-
-    return GameEvent(event_message=event_message, choices=choices)
+def call_llm_for_start(game_id:int) -> Event:
+    return Event(game_id=game_id, event=generate_event(1))
+    
+    
 
 @app.post("/api/game/start", response_model=StartGameResponse)
 async def start_game(body: StartGameRequest, db: Session = Depends(get_db)):
@@ -132,9 +91,7 @@ async def start_game(body: StartGameRequest, db: Session = Depends(get_db)):
     db.refresh(game)
     db.refresh(initial_day)
     
-    event = call_llm_for_start(body)
-
-    games[game.id] = GameState(game_id=game.id, params=body, event=event)
+    event = call_llm_for_start(game_id=game.id)
 
     return StartGameResponse(
         game_id=game.id,
