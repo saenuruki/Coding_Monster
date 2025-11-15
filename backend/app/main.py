@@ -1,79 +1,14 @@
 import uuid
 import random
 from fastapi import FastAPI, HTTPException, Depends
-from pydantic import BaseModel
 from typing import List
 import sqlite3
 from sqlalchemy.orm import Session
 from init_db import SessionLocal, User, Game, Day, init_db 
+from model import *
 
 app = FastAPI()
 conn = sqlite3.connect("mydb.sqlite")
-
-class GameSchema(BaseModel):
-    id: int
-    age: int
-    gender: str
-    character_name: str
-    work: bool
-    user_id: int
-
-    class Config:
-        from_attributes = True  
-
-class GameStatus(BaseModel):
-    user_id: int
-    work: bool
-    age: int
-    gender: str
-    character_name: str
-    day: int = 1
-
-class StartGameRequest(BaseModel):
-    age: int
-    gender: str
-    character_name: str
-    work: bool
-
-class Choice(BaseModel):
-    id: int
-    text: str
-
-
-class DayEvent(BaseModel):
-    day: int
-    description: str
-    choices: List[Choice]
-
-
-class GameEvent(BaseModel):
-    event_message: str
-    choices: List[Choice]
-
-
-class StartGameResponse(BaseModel):
-    game_id: str
-    event: GameEvent
-
-
-class ChoiceRequest(BaseModel):
-    day: int
-    choice_id: int
-
-
-class ChoiceResponse(BaseModel):
-    status: GameStatus
-    applied_choice: Choice
-
-
-class GameState:
-    def __init__(self, game_id: str):
-        self.game_id = game_id
-        self.day = 1
-        self.health = 100
-        self.money = 50
-        self.mood = 50
-        self.is_over = False
 
 
 games: dict[str, GameState] = {}
