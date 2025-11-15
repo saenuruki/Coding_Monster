@@ -9,13 +9,18 @@ import { GameEvent, GameState, GameStatus } from '../lib/api';
 import { ActionsPanel, ActionItem } from './ActionsPanel';
 import { ManageFinancePanel } from './ManageFinancePanel';
 
-const STAT_CONFIG = [
-  { key: 'health' as keyof GameStatus, icon: Activity, label: 'Health', color: 'text-red-400' },
-  { key: 'happiness' as keyof GameStatus, icon: Heart, label: 'Happiness', color: 'text-rose-400' },
-  { key: 'money' as keyof GameStatus, icon: Wallet, label: 'Money', color: 'text-emerald-400' },
-  { key: 'energy' as keyof GameStatus, icon: Zap, label: 'Energy', color: 'text-amber-400' },
-  { key: 'social' as keyof GameStatus, icon: Users, label: 'Social', color: 'text-blue-400' },
-  { key: 'career' as keyof GameStatus, icon: Briefcase, label: 'Career', color: 'text-purple-400' },
+type NumericStat = 'health' | 'mood' | 'money';
+
+type StatChanges = {
+  health?: number;
+  money?: number;
+  mood?: number;
+};
+
+const STAT_CONFIG: Array<{ key: NumericStat; icon: any; label: string; color: string }> = [
+  { key: 'health', icon: Activity, label: 'Health', color: 'text-red-400' },
+  { key: 'mood', icon: Heart, label: 'Mood', color: 'text-rose-400' },
+  { key: 'money', icon: Wallet, label: 'Money', color: 'text-emerald-400' },
 ];
 
 interface GamePlayPanelProps {
@@ -25,12 +30,10 @@ interface GamePlayPanelProps {
   currentEvent: GameEvent | null;
   loading: boolean;
   showResult: boolean;
-  statChanges: Partial<GameStatus>;
+  statChanges: StatChanges;
   resultText: string;
   onChooseOption: (choiceIndex: number) => void;
   onActionSelected?: (action: ActionItem) => void;
-  onShowActions?: () => void;
-  onShowManageFinance?: () => void;
 }
 
 export function GamePlayPanel({
@@ -44,8 +47,6 @@ export function GamePlayPanel({
   resultText,
   onChooseOption,
   onActionSelected,
-  onShowActions,
-  onShowManageFinance,
 }: GamePlayPanelProps) {
   const [selectedTab, setSelectedTab] = React.useState<'actions' | 'finance' | null>(null);
   const hasPositiveChange = Object.values(statChanges).some(value => (value ?? 0) > 0);
@@ -90,7 +91,6 @@ export function GamePlayPanel({
             }`}
             onClick={() => {
               setSelectedTab(selectedTab === 'actions' ? null : 'actions');
-              onShowActions?.();
             }}
           >
             Actions
@@ -104,7 +104,6 @@ export function GamePlayPanel({
             }`}
             onClick={() => {
               setSelectedTab(selectedTab === 'finance' ? null : 'finance');
-              onShowManageFinance?.();
             }}
           >
             Manage Finance
@@ -115,6 +114,7 @@ export function GamePlayPanel({
           <ActionsPanel 
             onSelectAction={onActionSelected}
             currentMoney={gameState.status.money}
+            timeAllocation={gameState.time_allocation}
           />
         )}
         {selectedTab === 'finance' && <ManageFinancePanel />}
@@ -145,16 +145,16 @@ export function GamePlayPanel({
               </div>
 
               <div className="space-y-3">
-                {currentEvent.options.map((option, index) => (
+                {currentEvent.choices.map((choice, index) => (
                   <Button
-                    key={index}
+                    key={choice.id}
                     type="button"
-                    onClick={() => onChooseOption(index)}
+                    onClick={() => onChooseOption(choice.id)}
                     className="w-full h-auto py-4 px-4 bg-[#2b2b2b] hover:bg-[#4a4a4a] border border-white/10 text-left"
                     variant="outline"
                     disabled={loading}
                   >
-                    <span className="text-white">{option}</span>
+                    <span className="text-white">{choice.text}</span>
                   </Button>
                 ))}
               </div>
@@ -205,5 +205,3 @@ export function GamePlayPanel({
     </div>
   );
 }
-
-
