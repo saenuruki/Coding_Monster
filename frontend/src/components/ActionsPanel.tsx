@@ -8,7 +8,6 @@ import {
   Users, 
   Gamepad2, 
   BookOpen, 
-  UserPlus, 
   DollarSign,
   Clock,
   Heart,
@@ -30,6 +29,7 @@ export interface ActionItem {
   impact: Partial<GameStatus>;
   description: string;
   cost?: number;
+  time_cost: number; // Time allocation cost in hours
   duration?: string;
   icon?: React.ElementType;
 }
@@ -42,6 +42,7 @@ const ACTIONS: ActionItem[] = [
     type: 'education',
     impact: { career: 10, energy: -5, happiness: -2 },
     description: 'Focus on your studies for half an hour. Boosts career prospects.',
+    time_cost: 0.5,
     duration: '30min',
     icon: BookOpen
   },
@@ -51,6 +52,7 @@ const ACTIONS: ActionItem[] = [
     type: 'education',
     impact: { career: 15, social: 5, energy: -10, happiness: 3 },
     description: 'Study with classmates for 2 hours. Great for learning and socializing.',
+    time_cost: 2,
     duration: '2hrs',
     icon: Users
   },
@@ -61,6 +63,8 @@ const ACTIONS: ActionItem[] = [
     impact: { career: 20, money: -50 },
     description: 'Get personalized help from a professional tutor.',
     cost: 50,
+    time_cost: 1.5,
+    duration: '1.5hrs',
     icon: GraduationCap
   },
   {
@@ -70,6 +74,8 @@ const ACTIONS: ActionItem[] = [
     impact: { career: 15, money: -30 },
     description: 'Access online courses and learning materials.',
     cost: 30,
+    time_cost: 0,
+    duration: 'Instant',
     icon: GraduationCap
   },
   
@@ -80,6 +86,7 @@ const ACTIONS: ActionItem[] = [
     type: 'work',
     impact: { money: 15, energy: -15, happiness: -5 },
     description: 'Take on a short task like washing a car or delivering food.',
+    time_cost: 1.5,
     duration: '1-2hrs',
     icon: DollarSign
   },
@@ -89,6 +96,8 @@ const ACTIONS: ActionItem[] = [
     type: 'work',
     impact: { career: 5, energy: -5 },
     description: 'Search for part-time employment opportunities. 3-4 options available.',
+    time_cost: 1,
+    duration: '1hr',
     icon: Briefcase
   },
   {
@@ -97,6 +106,8 @@ const ACTIONS: ActionItem[] = [
     type: 'work',
     impact: { career: 5 },
     description: 'View your current job, adjust hours, or quit if needed.',
+    time_cost: 0.5,
+    duration: '30min',
     icon: Clock
   },
   
@@ -107,6 +118,8 @@ const ACTIONS: ActionItem[] = [
     type: 'social',
     impact: { social: 10, happiness: 8, money: 20 },
     description: 'Spend quality time with family. They might help with expenses!',
+    time_cost: 3,
+    duration: '3hrs',
     icon: Heart
   },
   {
@@ -116,6 +129,8 @@ const ACTIONS: ActionItem[] = [
     impact: { social: 15, happiness: 12, money: -25 },
     description: 'Enjoy a romantic evening with someone special.',
     cost: 25,
+    time_cost: 2.5,
+    duration: '2-3hrs',
     icon: Heart
   },
   {
@@ -125,6 +140,8 @@ const ACTIONS: ActionItem[] = [
     impact: { social: 8, happiness: 10, money: -15 },
     description: 'Watch a movie with friends and relax.',
     cost: 15,
+    time_cost: 2.5,
+    duration: '2-3hrs',
     icon: Film
   },
   {
@@ -134,6 +151,8 @@ const ACTIONS: ActionItem[] = [
     impact: { social: 20, happiness: 15, energy: -20, money: -20 },
     description: 'Let loose and have fun with friends all night!',
     cost: 20,
+    time_cost: 4,
+    duration: '4hrs',
     icon: PartyPopper
   },
   {
@@ -143,6 +162,8 @@ const ACTIONS: ActionItem[] = [
     impact: { social: 12, happiness: 10, money: -18 },
     description: 'Strike up some fun with friends at the bowling alley.',
     cost: 18,
+    time_cost: 2,
+    duration: '2hrs',
     icon: Gamepad2
   },
   {
@@ -152,6 +173,8 @@ const ACTIONS: ActionItem[] = [
     impact: { social: 10, happiness: 8, money: -20 },
     description: 'Enjoy a meal at a restaurant with friends.',
     cost: 20,
+    time_cost: 1.5,
+    duration: '1-2hrs',
     icon: Coffee
   },
   {
@@ -160,6 +183,8 @@ const ACTIONS: ActionItem[] = [
     type: 'social',
     impact: { social: 8, happiness: 12, energy: -5 },
     description: 'Play online games with friends and have a blast.',
+    time_cost: 2,
+    duration: '2hrs',
     icon: Gamepad2
   },
   
@@ -171,6 +196,8 @@ const ACTIONS: ActionItem[] = [
     impact: { health: 10, energy: -10, happiness: 5, money: -10 },
     description: 'Get a day pass and work out to stay fit.',
     cost: 10,
+    time_cost: 1.5,
+    duration: '1-2hrs',
     icon: Dumbbell
   },
   {
@@ -180,6 +207,8 @@ const ACTIONS: ActionItem[] = [
     impact: { health: 15, energy: -8, happiness: 8, money: -30 },
     description: 'Subscribe for unlimited gym access this month.',
     cost: 30,
+    time_cost: 0,
+    duration: 'Instant',
     icon: Dumbbell
   },
   {
@@ -188,6 +217,8 @@ const ACTIONS: ActionItem[] = [
     type: 'hobby',
     impact: { happiness: 8, energy: 5 },
     description: 'Relax and enjoy your favorite tunes.',
+    time_cost: 1,
+    duration: '1hr',
     icon: Music
   },
   {
@@ -196,6 +227,8 @@ const ACTIONS: ActionItem[] = [
     type: 'hobby',
     impact: { happiness: 10, energy: 3 },
     description: 'Enjoy a movie at home and unwind.',
+    time_cost: 2,
+    duration: '2hrs',
     icon: Film
   },
   {
@@ -204,6 +237,8 @@ const ACTIONS: ActionItem[] = [
     type: 'hobby',
     impact: { happiness: 12, energy: -5 },
     description: 'Play your favorite video games alone.',
+    time_cost: 2,
+    duration: '2hrs',
     icon: Gamepad2
   },
   {
@@ -212,6 +247,8 @@ const ACTIONS: ActionItem[] = [
     type: 'hobby',
     impact: { happiness: 8, career: 5, energy: 3 },
     description: 'Get lost in a good book and expand your mind.',
+    time_cost: 1,
+    duration: '1hr',
     icon: BookOpen
   },
   {
@@ -220,6 +257,8 @@ const ACTIONS: ActionItem[] = [
     type: 'hobby',
     impact: { health: 8, happiness: 10, energy: 5 },
     description: 'Go for a refreshing walk outside.',
+    time_cost: 0.5,
+    duration: '30min',
     icon: Heart
   },
   {
@@ -228,6 +267,8 @@ const ACTIONS: ActionItem[] = [
     type: 'hobby',
     impact: { happiness: 15, energy: 8 },
     description: 'Spend time with a furry friend. Instant mood booster!',
+    time_cost: 0.5,
+    duration: '30min',
     icon: Cat
   }
 ];
@@ -242,9 +283,10 @@ const ACTION_TYPE_CONFIG = {
 interface ActionsPanelProps {
   onSelectAction?: (action: ActionItem) => void;
   currentMoney?: number;
+  timeAllocation?: number;
 }
 
-export function ActionsPanel({ onSelectAction, currentMoney = 0 }: ActionsPanelProps) {
+export function ActionsPanel({ onSelectAction, currentMoney = 0, timeAllocation = 8 }: ActionsPanelProps) {
   const [selectedType, setSelectedType] = useState<'education' | 'work' | 'social' | 'hobby'>('education');
   const [expandedAction, setExpandedAction] = useState<string | null>(null);
 
@@ -261,6 +303,10 @@ export function ActionsPanel({ onSelectAction, currentMoney = 0 }: ActionsPanelP
   const handleConfirmAction = (action: ActionItem) => {
     if (action.cost && currentMoney < action.cost) {
       alert(`Not enough money! You need €${action.cost} but only have €${currentMoney}.`);
+      return;
+    }
+    if (action.time_cost > timeAllocation) {
+      alert(`Not enough time! This action requires ${action.time_cost} hours but you only have ${timeAllocation.toFixed(1)} hours left today.`);
       return;
     }
     onSelectAction?.(action);
@@ -298,6 +344,19 @@ export function ActionsPanel({ onSelectAction, currentMoney = 0 }: ActionsPanelP
         <p className="text-white/60 text-sm">Plan your next move.</p>
       </div>
 
+      {/* Time Allocation Display */}
+      <Card className="bg-black/20 border-white/10 p-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Clock className="h-5 w-5 text-blue-400" />
+            <span className="text-white text-sm font-semibold">Time Left Today</span>
+          </div>
+          <span className={`text-lg font-bold ${timeAllocation > 4 ? 'text-emerald-400' : timeAllocation > 2 ? 'text-yellow-400' : 'text-red-400'}`}>
+            {timeAllocation.toFixed(1)} / 8 hrs
+          </span>
+        </div>
+      </Card>
+
       {/* Category Tabs */}
       <div className="grid grid-cols-2 gap-2">
         {(Object.keys(ACTION_TYPE_CONFIG) as Array<keyof typeof ACTION_TYPE_CONFIG>).map((type) => {
@@ -326,13 +385,15 @@ export function ActionsPanel({ onSelectAction, currentMoney = 0 }: ActionsPanelP
           const isExpanded = expandedAction === action.id;
           const Icon = action.icon || BookOpen;
           const canAfford = !action.cost || currentMoney >= action.cost;
+          const hasEnoughTime = action.time_cost <= timeAllocation;
+          const canPerform = canAfford && hasEnoughTime;
           
           return (
             <Card 
               key={action.id} 
               className={`${ACTION_TYPE_CONFIG[action.type].color} border p-3 cursor-pointer transition-all ${
                 isExpanded ? 'ring-2 ring-white/20' : ''
-              } ${!canAfford ? 'opacity-50' : ''}`}
+              } ${!canPerform ? 'opacity-50' : ''}`}
               onClick={() => handleActionClick(action)}
             >
               <div className="flex items-start gap-3">
@@ -374,9 +435,9 @@ export function ActionsPanel({ onSelectAction, currentMoney = 0 }: ActionsPanelP
                           handleConfirmAction(action);
                         }}
                         className="w-full bg-white hover:bg-white/90 text-black font-semibold"
-                        disabled={!canAfford}
+                        disabled={!canPerform}
                       >
-                        {!canAfford ? 'Cannot Afford' : 'Take This Action'}
+                        {!canAfford ? 'Cannot Afford' : !hasEnoughTime ? 'Not Enough Time' : 'Take This Action'}
                       </Button>
                     </div>
                   )}
@@ -389,4 +450,3 @@ export function ActionsPanel({ onSelectAction, currentMoney = 0 }: ActionsPanelP
     </Card>
   );
 }
-

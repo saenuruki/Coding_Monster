@@ -4,18 +4,23 @@ import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
-import { Activity, Heart, Wallet, Zap, Users, Briefcase, Calendar, Loader2 } from 'lucide-react';
+import { Activity, Heart, Wallet, Zap, Users, Briefcase, Calendar, Loader2, ArrowLeft } from 'lucide-react';
 import { GameEvent, GameState, GameStatus } from '../lib/api';
 import { ActionsPanel, ActionItem } from './ActionsPanel';
 import { ManageFinancePanel } from './ManageFinancePanel';
 
-const STAT_CONFIG = [
-  { key: 'health' as keyof GameStatus, icon: Activity, label: 'Health', color: 'text-red-400' },
-  { key: 'happiness' as keyof GameStatus, icon: Heart, label: 'Happiness', color: 'text-rose-400' },
-  { key: 'money' as keyof GameStatus, icon: Wallet, label: 'Money', color: 'text-emerald-400' },
-  { key: 'energy' as keyof GameStatus, icon: Zap, label: 'Energy', color: 'text-amber-400' },
-  { key: 'social' as keyof GameStatus, icon: Users, label: 'Social', color: 'text-blue-400' },
-  { key: 'career' as keyof GameStatus, icon: Briefcase, label: 'Career', color: 'text-purple-400' },
+type NumericStat = 'health' | 'mood' | 'money';
+
+type StatChanges = {
+  health?: number;
+  money?: number;
+  mood?: number;
+};
+
+const STAT_CONFIG: Array<{ key: NumericStat; icon: any; label: string; color: string }> = [
+  { key: 'health', icon: Activity, label: 'Health', color: 'text-red-400' },
+  { key: 'mood', icon: Heart, label: 'Mood', color: 'text-rose-400' },
+  { key: 'money', icon: Wallet, label: 'Money', color: 'text-emerald-400' },
 ];
 
 interface GamePlayPanelProps {
@@ -25,12 +30,10 @@ interface GamePlayPanelProps {
   currentEvent: GameEvent | null;
   loading: boolean;
   showResult: boolean;
-  statChanges: Partial<GameStatus>;
+  statChanges: StatChanges;
   resultText: string;
   onChooseOption: (choiceIndex: number) => void;
   onActionSelected?: (action: ActionItem) => void;
-  onShowActions?: () => void;
-  onShowManageFinance?: () => void;
 }
 
 export function GamePlayPanel({
@@ -44,12 +47,49 @@ export function GamePlayPanel({
   resultText,
   onChooseOption,
   onActionSelected,
-  onShowActions,
-  onShowManageFinance,
 }: GamePlayPanelProps) {
   const [selectedTab, setSelectedTab] = React.useState<'actions' | 'finance' | null>(null);
   const hasPositiveChange = Object.values(statChanges).some(value => (value ?? 0) > 0);
 
+  // Show Actions Panel screen
+  if (selectedTab === 'actions') {
+    return (
+      <div className="w-full max-w-2xl space-y-4">
+        <Button
+          type="button"
+          onClick={() => setSelectedTab(null)}
+          className="bg-[#2b2b2b] hover:bg-[#4a4a4a] border border-white/10 text-white"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Game
+        </Button>
+        <ActionsPanel 
+          onSelectAction={onActionSelected}
+          currentMoney={gameState.status.money}
+          timeAllocation={gameState.time_allocation}
+        />
+      </div>
+    );
+  }
+
+  // Show Manage Finance Panel screen
+  if (selectedTab === 'finance') {
+    return (
+      <div className="w-full max-w-2xl space-y-4">
+        <Button
+          type="button"
+          onClick={() => setSelectedTab(null)}
+          className="bg-[#2b2b2b] hover:bg-[#4a4a4a] border border-white/10 text-white"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Game
+        </Button>
+        <ManageFinancePanel />
+      </div>
+    );
+  }
+
+  // Default Game Play screen
   return (
     <div className="w-full max-w-2xl space-y-4">
       {apiSource === 'mock' && (
@@ -72,9 +112,15 @@ export function GamePlayPanel({
                 <Icon className={`h-4 w-4 ${color}`} />
                 <span className="text-white text-sm">{label}</span>
               </div>
-              <span className="text-white text-sm">{gameState.status[key]}%</span>
+              <span className="text-white text-sm">
+                {key === 'money' ? `€${gameState.status[key]}` : `${gameState.status[key]}%`}
+              </span>
             </div>
-            <Progress value={gameState.status[key]} className="h-1.5" />
+            {key === 'money' ? (
+              <div className="text-white/60 text-xs mt-1">Available funds</div>
+            ) : (
+              <Progress value={gameState.status[key]} className="h-1.5" />
+            )}
           </Card>
         ))}
       </div>
@@ -83,41 +129,19 @@ export function GamePlayPanel({
         <div className="flex flex-col sm:flex-row gap-2">
           <Button
             type="button"
-            className={`flex-1 border border-white/10 transition-colors text-white ${
-              selectedTab === 'actions'
-                ? 'bg-black hover:bg-black'
-                : 'bg-[#2b2b2b] hover:bg-[#4a4a4a]'
-            }`}
-            onClick={() => {
-              setSelectedTab(selectedTab === 'actions' ? null : 'actions');
-              onShowActions?.();
-            }}
+            className="flex-1 border border-white/10 transition-colors text-white bg-[#2b2b2b] hover:bg-[#4a4a4a]"
+            onClick={() => setSelectedTab('actions')}
           >
             Actions
           </Button>
           <Button
             type="button"
-            className={`flex-1 border border-white/10 transition-colors text-white ${
-              selectedTab === 'finance'
-                ? 'bg-black hover:bg-black'
-                : 'bg-[#2b2b2b] hover:bg-[#4a4a4a]'
-            }`}
-            onClick={() => {
-              setSelectedTab(selectedTab === 'finance' ? null : 'finance');
-              onShowManageFinance?.();
-            }}
+            className="flex-1 border border-white/10 transition-colors text-white bg-[#2b2b2b] hover:bg-[#4a4a4a]"
+            onClick={() => setSelectedTab('finance')}
           >
             Manage Finance
           </Button>
         </div>
-
-        {selectedTab === 'actions' && (
-          <ActionsPanel 
-            onSelectAction={onActionSelected}
-            currentMoney={gameState.status.money}
-          />
-        )}
-        {selectedTab === 'finance' && <ManageFinancePanel />}
 
         <Card className="bg-[#3a3a3a] backdrop-blur-lg border-white/10 p-4">
           <div className="flex items-center justify-center gap-2 text-white">
@@ -145,16 +169,16 @@ export function GamePlayPanel({
               </div>
 
               <div className="space-y-3">
-                {currentEvent.options.map((option, index) => (
+                {currentEvent.choices.map((choice, index) => (
                   <Button
-                    key={index}
+                    key={choice.id}
                     type="button"
-                    onClick={() => onChooseOption(index)}
+                    onClick={() => onChooseOption(choice.id)}
                     className="w-full h-auto py-4 px-4 bg-[#2b2b2b] hover:bg-[#4a4a4a] border border-white/10 text-left"
                     variant="outline"
                     disabled={loading}
                   >
-                    <span className="text-white">{option}</span>
+                    <span className="text-white">{choice.text}</span>
                   </Button>
                 ))}
               </div>
@@ -189,8 +213,11 @@ export function GamePlayPanel({
                         } px-3 py-2`}
                       >
                         <Icon className="h-3 w-3 mr-1" />
-                        {change > 0 ? '+' : ''}
-                        {change} {label}
+                        {key === 'money' ? (
+                          <>{change > 0 ? '+' : ''}€{change}</>
+                        ) : (
+                          <>{change > 0 ? '+' : ''}{change} {label}</>
+                        )}
                       </Badge>
                     );
                   })}
@@ -205,5 +232,3 @@ export function GamePlayPanel({
     </div>
   );
 }
-
-
