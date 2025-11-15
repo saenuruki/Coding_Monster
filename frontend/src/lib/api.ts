@@ -41,6 +41,8 @@ export interface GameState {
   status: GameStatus;
   currentEvent: GameEvent | null;
   params: StartGameRequest;
+  time_allocation: number;
+  max_time_allocation: number;
 }
 
 export interface DayEvent {
@@ -120,6 +122,8 @@ export async function startNewGame(params: StartGameRequest): Promise<GameState>
       },
       currentEvent: data.event,
       params: params,
+      time_allocation: 8,
+      max_time_allocation: 8,
     };
 
     currentGame = game;
@@ -251,6 +255,8 @@ async function startNewGameMock(params: StartGameRequest): Promise<GameState> {
     },
     currentEvent: initialEvent,
     params: params,
+    time_allocation: 8,
+    max_time_allocation: 8,
   };
 
   currentGame = game;

@@ -114,7 +114,7 @@ export function GamePlayPanel({
           <ActionsPanel 
             onSelectAction={onActionSelected}
             currentMoney={gameState.status.money}
-            timeAllocation={8}
+            timeAllocation={gameState.time_allocation}
           />
         )}
         {selectedTab === 'finance' && <ManageFinancePanel />}

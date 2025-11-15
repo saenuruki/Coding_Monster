@@ -123,6 +123,7 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
           ...prev,
           status: result.status,
           day: result.status.day,
+          time_allocation: prev.max_time_allocation, // Reset time allocation for new day
         } : null);
       }, 3000);
       
@@ -137,6 +138,15 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
   const handleActionSelected = (action: ActionItem) => {
     if (!gameState) return;
 
+    // Check if enough time is available
+    if (gameState.time_allocation < action.time_cost) {
+      setErrorMessage(`Not enough time! You need ${action.time_cost} hours but only have ${gameState.time_allocation} hours left.`);
+      return;
+    }
+
+    // Clear any previous error messages
+    setErrorMessage(null);
+
     // Calculate new status
     const newStatus = { ...gameState.status };
     const changes: StatChanges = {};
@@ -150,9 +160,12 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
       }
     });
 
+    // Deduct time allocation
+    const newTimeAllocation = Math.max(0, gameState.time_allocation - action.time_cost);
+
     // Show result
     setStatChanges(changes);
-    setResultText(`You chose to: ${action.name}. ${action.description}`);
+    setResultText(`You chose to: ${action.name}. ${action.description} (Time used: ${action.time_cost}h)`);
     setShowResult(true);
 
     setTimeout(() => {
@@ -160,6 +173,7 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
       setGameState(prev => prev ? {
         ...prev,
         status: newStatus,
+        time_allocation: newTimeAllocation,
       } : null);
     }, 3000);
   };
