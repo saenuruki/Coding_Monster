@@ -138,11 +138,33 @@ def make_choice(
     db.commit()
     db.refresh(current_day)
 
-    # 6. Construct the full, updated game state response
+    # 6. Create new Day (increment day number)
+    new_day = init_db.Day(
+        game_id=db_game.id,
+        number_of_day=current_day.number_of_day + 1,
+        health=current_day.health,
+        happiness=current_day.happiness,
+        stress=current_day.stress,
+        reputation=current_day.reputation,
+        education=current_day.education,
+        money=current_day.money,
+        weekly_income=current_day.weekly_income,
+        weekly_expense=current_day.weekly_expense,
+        free_time=current_day.free_time
+    )
+    db.add(new_day)
+    db.commit()
+    db.refresh(new_day)
+
+    # 7. Construct the full, updated game state response
     game_state_response = get_full_game(db, db_game)
-    
+
+    # 8. Generate the next event using the LLM
+    next_event = generate_event(game_state_response)
+
     return models.ChoiceResponse(
-        game_state=game_state_response
+        game_state=game_state_response,
+        event=next_event
     )
 
 

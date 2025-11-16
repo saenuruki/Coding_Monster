@@ -140,3 +140,4 @@ class ChoiceRequest(BaseModel):
 class ChoiceResponse(BaseModel):
     """Response model after a choice has been applied."""
     game_state: Game
+    event: Event
