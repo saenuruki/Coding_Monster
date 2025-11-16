@@ -131,6 +131,13 @@ export interface DailyFinances {
   expenses: DailyFinanceItem[];
 }
 
+export interface SavingsAccount {
+  type: 'fixed' | 'flexible';
+  amount: number;
+  interest: number;
+  withdrawCount?: number; // for fixed type tracking
+}
+
 export interface GameState {
   game_id: string;
   day: number;
@@ -145,6 +152,8 @@ export interface GameState {
   // Finance history - accumulated throughout the game, not reset on new day
   // Only status is overwritten by API responses
   dailyFinances: DailyFinances;
+  // Savings account
+  savingsAccount?: SavingsAccount;
 }
 
 export interface DayEvent {
@@ -242,6 +251,7 @@ export async function startNewGame(params: StartGameRequest): Promise<GameState>
         incomes: [{ id: '1', name: 'Allowance', amount: data.game_state.finances.incomes[0]?.amount || 200, timestamp: Date.now() }],
         expenses: [{ id: '1', name: 'Living Costs', amount: data.game_state.finances.expenses[0]?.amount || 100, timestamp: Date.now() }],
       },
+      savingsAccount: undefined, // No savings account by default
     };
 
     currentGame = game;
@@ -426,6 +436,7 @@ async function startNewGameMock(params: StartGameRequest): Promise<GameState> {
       incomes: [{ id: '1', name: 'Allowance', amount: 200, timestamp: Date.now() }],
       expenses: [{ id: '1', name: 'Living Costs', amount: 100, timestamp: Date.now() }],
     },
+    savingsAccount: undefined, // No savings account by default
   };
 
   currentGame = game;

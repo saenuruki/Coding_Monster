@@ -123,11 +123,24 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
         setGameState(prev => {
           if (!prev) return null;
           
+          // Apply interest to savings account if it exists
+          let updatedSavingsAccount = prev.savingsAccount;
+          if (prev.savingsAccount && prev.savingsAccount.amount > 0) {
+            // Apply daily interest rate (annual rate / 365)
+            const dailyInterestRate = prev.savingsAccount.interest / 100;
+            const interestEarned = prev.savingsAccount.amount * dailyInterestRate;
+            updatedSavingsAccount = {
+              ...prev.savingsAccount,
+              amount: prev.savingsAccount.amount + interestEarned,
+            };
+          }
+          
           return {
             ...prev,
             status: result.status, // Status is overwritten by API
             day: result.status.day,
             time_allocation: prev.max_time_allocation, // Reset time allocation for new day
+            savingsAccount: updatedSavingsAccount, // Update with interest
             // dailyFinances is kept and accumulated (not reset)
           };
         });
@@ -139,6 +152,23 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleUpdateSavings = (newSavingsAccount: import('../lib/api').SavingsAccount | undefined, moneyDelta: number) => {
+    if (!gameState) return;
+
+    setGameState(prev => {
+      if (!prev) return null;
+      
+      const newStatus = { ...prev.status };
+      newStatus.money = Math.max(0, newStatus.money + moneyDelta);
+      
+      return {
+        ...prev,
+        status: newStatus,
+        savingsAccount: newSavingsAccount,
+      };
+    });
   };
 
   const handleActionSelected = (action: ActionItem) => {
@@ -267,6 +297,7 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
           resultText={resultText}
           onChooseOption={handleChoice}
           onActionSelected={handleActionSelected}
+          onUpdateSavings={handleUpdateSavings}
         />
       </div>
     </div>

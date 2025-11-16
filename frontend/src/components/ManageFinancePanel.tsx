@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { PlusCircle, MinusCircle, Trash2, TrendingUp, Wallet } from 'lucide-react';
-import { DailyFinances } from '../lib/api';
+import { DailyFinances, SavingsAccount } from '../lib/api';
 
 interface IncomeItem {
   id: string;
@@ -18,13 +18,6 @@ interface ExpenseItem {
   amount: number;
 }
 
-interface SavingsAccount {
-  type: 'fixed' | 'flexible';
-  amount: number;
-  interest: number;
-  withdrawCount?: number; // for fixed type tracking
-}
-
 interface FinanceData {
   incomes: IncomeItem[];
   expenses: ExpenseItem[];
@@ -33,9 +26,12 @@ interface FinanceData {
 
 interface ManageFinancePanelProps {
   dailyFinances?: DailyFinances;
+  currentMoney: number;
+  savingsAccount?: SavingsAccount;
+  onUpdateSavings: (newSavingsAccount: SavingsAccount | undefined, moneyDelta: number) => void;
 }
 
-export function ManageFinancePanel({ dailyFinances }: ManageFinancePanelProps) {
+export function ManageFinancePanel({ dailyFinances, currentMoney, savingsAccount, onUpdateSavings }: ManageFinancePanelProps) {
   // Use dailyFinances from props or default values
   const [financeData, setFinanceData] = useState<FinanceData>({
     incomes: dailyFinances?.incomes || [
@@ -44,12 +40,7 @@ export function ManageFinancePanel({ dailyFinances }: ManageFinancePanelProps) {
     expenses: dailyFinances?.expenses || [
       { id: '1', name: 'Living Costs', amount: 100 }
     ],
-    savings_account: {
-      type: 'flexible',
-      amount: 1000,
-      interest: 3.8,
-      withdrawCount: 0
-    }
+    savings_account: savingsAccount
   });
 
   const [newIncome, setNewIncome] = useState({ name: '', amount: '' });
@@ -68,6 +59,14 @@ export function ManageFinancePanel({ dailyFinances }: ManageFinancePanelProps) {
       }));
     }
   }, [dailyFinances]);
+
+  // Update savings account when prop changes
+  useEffect(() => {
+    setFinanceData(prev => ({
+      ...prev,
+      savings_account: savingsAccount,
+    }));
+  }, [savingsAccount]);
 
   const totalIncome = financeData.incomes.reduce((sum, item) => sum + item.amount, 0);
   const totalExpenses = financeData.expenses.reduce((sum, item) => sum + item.amount, 0);
@@ -117,15 +116,13 @@ export function ManageFinancePanel({ dailyFinances }: ManageFinancePanelProps) {
 
   const createSavingsAccount = () => {
     if (newSavings.interest) {
-      setFinanceData({
-        ...financeData,
-        savings_account: {
-          type: newSavings.type,
-          amount: 0,
-          interest: parseFloat(newSavings.interest),
-          withdrawCount: 0
-        }
-      });
+      const newAccount: SavingsAccount = {
+        type: newSavings.type,
+        amount: 0, // Initial amount is 0
+        interest: parseFloat(newSavings.interest),
+        withdrawCount: 0
+      };
+      onUpdateSavings(newAccount, 0); // No money change when creating account
       setShowNewSavings(false);
       setNewSavings({ type: 'flexible', interest: '' });
     }
@@ -137,15 +134,19 @@ export function ManageFinancePanel({ dailyFinances }: ManageFinancePanelProps) {
     const amount = parseFloat(savingsAction.amount);
     
     if (savingsAction.type === 'add') {
-      setFinanceData({
-        ...financeData,
-        savings_account: {
-          ...financeData.savings_account,
-          amount: financeData.savings_account.amount + amount
-        }
-      });
+      // Add Money: deduct from current money, add to savings
+      if (currentMoney < amount) {
+        alert(`Not enough money! You have €${currentMoney.toFixed(2)} but need €${amount.toFixed(2)}.`);
+        return;
+      }
+
+      const updatedAccount: SavingsAccount = {
+        ...financeData.savings_account,
+        amount: financeData.savings_account.amount + amount
+      };
+      onUpdateSavings(updatedAccount, -amount); // Negative delta (money goes to savings)
     } else {
-      // Withdraw
+      // Withdraw: deduct from savings, add to current money
       if (financeData.savings_account.type === 'fixed' && 
           (financeData.savings_account.withdrawCount || 0) >= 2) {
         alert('Fixed account: Maximum 2 withdrawals reached');
@@ -157,16 +158,14 @@ export function ManageFinancePanel({ dailyFinances }: ManageFinancePanelProps) {
         return;
       }
 
-      setFinanceData({
-        ...financeData,
-        savings_account: {
-          ...financeData.savings_account,
-          amount: financeData.savings_account.amount - amount,
-          withdrawCount: financeData.savings_account.type === 'fixed' 
-            ? (financeData.savings_account.withdrawCount || 0) + 1 
-            : financeData.savings_account.withdrawCount
-        }
-      });
+      const updatedAccount: SavingsAccount = {
+        ...financeData.savings_account,
+        amount: financeData.savings_account.amount - amount,
+        withdrawCount: financeData.savings_account.type === 'fixed' 
+          ? (financeData.savings_account.withdrawCount || 0) + 1 
+          : financeData.savings_account.withdrawCount
+      };
+      onUpdateSavings(updatedAccount, amount); // Positive delta (money comes from savings)
     }
     
     setSavingsAction({ type: 'add', amount: '' });
@@ -189,7 +188,7 @@ export function ManageFinancePanel({ dailyFinances }: ManageFinancePanelProps) {
               €{netBalance.toFixed(2)}
             </p>
           </div>
-          <Wallet className="h-12 w-12 text-emerald-400/50" />
+          <img src="/person/pig.png" alt="Piggy Bank" className="h-12 w-12 object-contain" />
         </div>
         <div className="grid grid-cols-2 gap-4 mt-4">
           <div>
@@ -203,11 +202,11 @@ export function ManageFinancePanel({ dailyFinances }: ManageFinancePanelProps) {
         </div>
       </Card>
 
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Incomes Section */}
-        <Card className="bg-black/20 border-white/10 p-4 space-y-3">
+        <Card className="bg-black/20 border-white/10 p-4 flex flex-col gap-3">
           <h3 className="text-white font-semibold text-sm">Incomes</h3>
-          <div className="space-y-2">
+          <div className="space-y-2 flex-1 overflow-y-auto min-h-[200px]">
             {financeData.incomes.map(income => (
               <div key={income.id} className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 rounded px-3 py-2">
                 <span className="text-white text-sm">{income.name}</span>
@@ -243,9 +242,9 @@ export function ManageFinancePanel({ dailyFinances }: ManageFinancePanelProps) {
         </Card>
 
         {/* Expenses Section */}
-        <Card className="bg-black/20 border-white/10 p-4 space-y-3">
+        <Card className="bg-black/20 border-white/10 p-4 flex flex-col gap-3">
           <h3 className="text-white font-semibold text-sm">Expenses</h3>
-          <div className="space-y-2">
+          <div className="space-y-2 flex-1 overflow-y-auto min-h-[200px]">
             {financeData.expenses.map(expense => (
               <div key={expense.id} className="flex items-center justify-between bg-red-500/10 border border-red-500/20 rounded px-3 py-2">
                 <span className="text-white text-sm">{expense.name}</span>
