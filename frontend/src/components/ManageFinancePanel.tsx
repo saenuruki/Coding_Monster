@@ -317,7 +317,7 @@ export function ManageFinancePanel({ dailyFinances, currentMoney, savingsAccount
               </p>
             </div>
             <div className="space-y-2">
-              <Label className="text-white text-sm">Interest Rate (AER %)</Label>
+              <Label className="text-white text-sm">Interest Rate (%)</Label>
               <Input
                 type="number"
                 step="0.1"
