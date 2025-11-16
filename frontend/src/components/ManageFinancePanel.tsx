@@ -202,7 +202,7 @@ export function ManageFinancePanel({ dailyFinances, currentMoney, savingsAccount
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
         {/* Incomes Section */}
         <Card className="bg-black/20 border-white/10 p-4 flex flex-col gap-3">
           <h3 className="text-white font-semibold text-sm">Incomes</h3>

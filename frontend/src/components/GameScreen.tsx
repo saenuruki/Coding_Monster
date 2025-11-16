@@ -27,6 +27,7 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
   const [initializing, setInitializing] = useState(true);
   const [apiSource, setApiSource] = useState<'api' | 'mock'>(getApiSource());
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [characterImage, setCharacterImage] = useState('/person/person_normal.png');
 
   useEffect(() => {
     initializeGame();
@@ -117,6 +118,25 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
       setStatChanges(changes);
       setResultText(`You chose: ${result.applied_choice.text}`);
       setShowResult(true);
+
+      // Determine character image based on status changes
+      const moneyChange = changes.money || 0;
+      const moodChange = changes.mood || 0;
+      
+      let newCharacterImage = '/person/person_normal.png';
+      
+      if (moneyChange > 0) {
+        // Money increased
+        newCharacterImage = '/person/person_yeah.png';
+      } else if (moneyChange < 0 && moodChange > 0) {
+        // Money decreased but mood increased
+        newCharacterImage = '/person/person_mood.png';
+      } else if (moneyChange < 0 && moodChange < 0) {
+        // Both money and mood decreased
+        newCharacterImage = '/person/person_sad.png';
+      }
+      
+      setCharacterImage(newCharacterImage);
 
       setTimeout(() => {
         setShowResult(false);
@@ -233,6 +253,25 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
     setResultText(`You chose to: ${action.name}. ${action.description} (Time used: ${action.time_cost}h)`);
     setShowResult(true);
 
+    // Determine character image based on status changes
+    const moneyChange = changes.money || 0;
+    const moodChange = changes.mood || 0;
+    
+    let newCharacterImage = '/person/person_normal.png';
+    
+    if (moneyChange > 0) {
+      // Money increased
+      newCharacterImage = '/person/person_yeah.png';
+    } else if (moneyChange < 0 && moodChange > 0) {
+      // Money decreased but mood increased
+      newCharacterImage = '/person/person_mood.png';
+    } else if (moneyChange < 0 && moodChange < 0) {
+      // Both money and mood decreased
+      newCharacterImage = '/person/person_sad.png';
+    }
+    
+    setCharacterImage(newCharacterImage);
+
     setTimeout(() => {
       setShowResult(false);
       setGameState(prev => prev ? {
@@ -273,7 +312,7 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
 
   return (
     <div 
-      className="min-h-screen h-screen flex items-center justify-end p-4 relative overflow-hidden"
+      className="min-h-screen h-screen w-full flex items-center justify-center p-4 relative overflow-hidden"
       style={{
         backgroundImage: `url(${backgroundImage})`,
         backgroundSize: 'cover',
@@ -283,23 +322,34 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
     >
       {/* Overlay for better readability */}
       <div className="absolute inset-0 bg-black/30 pointer-events-none" />
-      
-      {/* Content - Scrollable Container */}
-      <div className="relative z-10 w-full max-w-2xl lg:w-1/2 lg:max-w-none h-full overflow-y-auto py-8">
-        <GamePlayPanel
-          gameState={gameState}
-          apiSource={apiSource}
-          errorMessage={errorMessage}
-          currentEvent={currentEvent}
-          loading={loading}
-          showResult={showResult}
-          statChanges={statChanges}
-          resultText={resultText}
-          onChooseOption={handleChoice}
-          onActionSelected={handleActionSelected}
-          onUpdateSavings={handleUpdateSavings}
-        />
-      </div>
+
+      {/* <div className="grid grid-cols-2 md:grid-cols-2 gap-2"> */}
+        {/* Content - Scrollable Container */}
+        <div className="relative z-10 w-full max-w-2xl lg:w-1/2 lg:max-w-none h-full overflow-y-auto py-8">
+          <GamePlayPanel
+            gameState={gameState}
+            apiSource={apiSource}
+            errorMessage={errorMessage}
+            currentEvent={currentEvent}
+            loading={loading}
+            showResult={showResult}
+            statChanges={statChanges}
+            resultText={resultText}
+            onChooseOption={handleChoice}
+            onActionSelected={handleActionSelected}
+            onUpdateSavings={handleUpdateSavings}
+          />
+        </div>
+
+        {/* Character Image - Center Position (Hidden on mobile) */}
+        <div className="hidden lg:block fixed bottom-0 left-1/2 -translate-x-1/2 z-[5] pointer-events-none">
+          <img
+            src={characterImage}
+            alt="Character"
+            className="h-[600px] w-auto object-contain transition-opacity duration-500"
+          />
+        </div>
+      {/* </div> */}
     </div>
   );
 }
