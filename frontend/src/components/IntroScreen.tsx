@@ -28,7 +28,7 @@ export function IntroScreen({ onStart }: IntroScreenProps) {
               </div>
             </motion.div>
             
-            <h1 className="text-white text-4xl">Life Balance</h1>
+            <h1 className="text-white text-4xl">KAIzen</h1>
             <p className="text-white/80 text-lg">
               A Journey Through Daily Decisions
             </p>
