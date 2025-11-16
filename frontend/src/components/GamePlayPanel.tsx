@@ -176,7 +176,7 @@ export function GamePlayPanel({
               </div>
 
               <div className="space-y-3">
-                {currentEvent.choices.map((choice, index) => (
+                {currentEvent.choices.map((choice) => (
                   <Button
                     key={choice.id}
                     type="button"

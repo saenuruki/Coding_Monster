@@ -92,6 +92,7 @@ export interface ChoiceRequest {
 
 export interface ChoiceResponse {
   game_state: Game;
+  event: Event;
 }
 
 // Legacy interfaces for compatibility
@@ -165,6 +166,7 @@ export interface DayEvent {
 type SubmitChoiceResponse = {
   status: GameStatus;
   applied_choice: Choice;
+  next_event: GameEvent;
 };
 
 type ApiSource = 'api' | 'mock';
@@ -301,6 +303,16 @@ export async function submitChoice(
       };
     }
 
+    // Convert backend Event to frontend GameEvent format
+    const nextEvent: GameEvent = {
+      event_message: data.event.description,
+      choices: data.event.options.map((option, index) => ({
+        id: index + 1,
+        text: option.description,
+        impact: option.impact,
+      })),
+    };
+
     // Convert to legacy response format
     const result: SubmitChoiceResponse = {
       status: {
@@ -316,6 +328,7 @@ export async function submitChoice(
         text: "Selected choice",
         impact: impact,
       },
+      next_event: nextEvent,
     };
 
     setApiSource('api');
@@ -513,6 +526,16 @@ async function submitChoiceMock(
   currentGame.status = newStatus;
   currentGame.day = newStatus.day;
 
+  // Generate next event for the new day
+  const nextDayEvent = generateEventForDay(newStatus.day);
+  const nextEvent: GameEvent = {
+    event_message: nextDayEvent.description,
+    choices: nextDayEvent.choices,
+  };
+
+  // Update current event for next iteration
+  currentGame.currentEvent = nextEvent;
+
   setApiSource('mock');
 
   return {
@@ -521,6 +544,7 @@ async function submitChoiceMock(
       ...selectedChoice,
       impact: impact,
     },
+    next_event: nextEvent,
   };
 }
 
