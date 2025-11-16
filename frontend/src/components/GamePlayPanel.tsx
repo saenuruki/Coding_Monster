@@ -133,7 +133,7 @@ export function GamePlayPanel({
       </div>
 
       <div className="space-y-3">
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div className="grid grid-cols-2 gap-4">
           <Button
             type="button"
             className="flex-1 border border-white/10 transition-colors text-white bg-[#2b2b2b] hover:bg-[#4a4a4a]"
