@@ -118,6 +118,26 @@ export interface GameEvent {
   choices: Choice[];
 }
 
+// Finance tracking for actions (accumulated throughout the game)
+export interface DailyFinanceItem {
+  id: string;
+  name: string;
+  amount: number;
+  timestamp: number;
+}
+
+export interface DailyFinances {
+  incomes: DailyFinanceItem[];
+  expenses: DailyFinanceItem[];
+}
+
+export interface SavingsAccount {
+  type: 'fixed' | 'flexible';
+  amount: number;
+  interest: number;
+  withdrawCount?: number; // for fixed type tracking
+}
+
 export interface GameState {
   game_id: string;
   day: number;
@@ -129,6 +149,11 @@ export interface GameState {
   // New fields from backend API
   game?: Game;
   currentBackendEvent?: Event;
+  // Finance history - accumulated throughout the game, not reset on new day
+  // Only status is overwritten by API responses
+  dailyFinances: DailyFinances;
+  // Savings account
+  savingsAccount?: SavingsAccount;
 }
 
 export interface DayEvent {
@@ -222,6 +247,11 @@ export async function startNewGame(params: StartGameRequest): Promise<GameState>
       max_time_allocation: data.game_state.stats.free_time,
       game: data.game_state,
       currentBackendEvent: data.event,
+      dailyFinances: {
+        incomes: [{ id: '1', name: 'Allowance', amount: data.game_state.finances.incomes[0]?.amount || 200, timestamp: Date.now() }],
+        expenses: [{ id: '1', name: 'Living Costs', amount: data.game_state.finances.expenses[0]?.amount || 100, timestamp: Date.now() }],
+      },
+      savingsAccount: undefined, // No savings account by default
     };
 
     currentGame = game;
@@ -402,6 +432,11 @@ async function startNewGameMock(params: StartGameRequest): Promise<GameState> {
     params: params,
     time_allocation: 8,
     max_time_allocation: 8,
+    dailyFinances: {
+      incomes: [{ id: '1', name: 'Allowance', amount: 200, timestamp: Date.now() }],
+      expenses: [{ id: '1', name: 'Living Costs', amount: 100, timestamp: Date.now() }],
+    },
+    savingsAccount: undefined, // No savings account by default
   };
 
   currentGame = game;

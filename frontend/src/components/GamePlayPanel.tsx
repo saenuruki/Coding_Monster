@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { Progress } from './ui/progress';
 import { Badge } from './ui/badge';
 import { Activity, Heart, Wallet, Zap, Users, Briefcase, Calendar, Loader2, ArrowLeft } from 'lucide-react';
-import { GameEvent, GameState, GameStatus } from '../lib/api';
+import { GameEvent, GameState, GameStatus, SavingsAccount } from '../lib/api';
 import { ActionsPanel, ActionItem } from './ActionsPanel';
 import { ManageFinancePanel } from './ManageFinancePanel';
 
@@ -34,6 +34,7 @@ interface GamePlayPanelProps {
   resultText: string;
   onChooseOption: (choiceIndex: number) => void;
   onActionSelected?: (action: ActionItem) => void;
+  onUpdateSavings?: (newSavingsAccount: SavingsAccount | undefined, moneyDelta: number) => void;
 }
 
 export function GamePlayPanel({
@@ -47,6 +48,7 @@ export function GamePlayPanel({
   resultText,
   onChooseOption,
   onActionSelected,
+  onUpdateSavings,
 }: GamePlayPanelProps) {
   const [selectedTab, setSelectedTab] = React.useState<'actions' | 'finance' | null>(null);
   const hasPositiveChange = Object.values(statChanges).some(value => (value ?? 0) > 0);
@@ -84,7 +86,12 @@ export function GamePlayPanel({
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Game
         </Button>
-        <ManageFinancePanel />
+        <ManageFinancePanel 
+          dailyFinances={gameState.dailyFinances}
+          currentMoney={gameState.status.money}
+          savingsAccount={gameState.savingsAccount}
+          onUpdateSavings={onUpdateSavings || (() => {})}
+        />
       </div>
     );
   }
