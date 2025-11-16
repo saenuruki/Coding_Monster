@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
-import { GameState, startNewGame, getDayEvent, submitChoice, GameEvent, GameStatus, getApiSource, StartGameRequest } from '../lib/api';
+import { GameState, startNewGame, submitChoice, GameEvent, GameStatus, getApiSource, StartGameRequest } from '../lib/api';
 import { GamePhase } from '../App';
 import { EndingScreen } from './EndingScreen';
 import { GamePlayPanel } from './GamePlayPanel';
@@ -33,12 +33,6 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
     initializeGame();
   }, []);
 
-  useEffect(() => {
-    if (gameState && !showResult) {
-      loadNextEvent();
-    }
-  }, [gameState?.day]);
-
   const updateApiSource = () => {
     setApiSource(getApiSource());
   };
@@ -55,6 +49,7 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
       };
       const newGame = await startNewGame(defaultParams);
       setGameState(newGame);
+      setCurrentEvent(newGame.currentEvent);
       updateApiSource();
       setErrorMessage(null);
     } catch (error) {
@@ -65,40 +60,17 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
     }
   };
 
-  const loadNextEvent = async () => {
-    if (!gameState) return;
-    
-    if (gameState.day > 10) {
-      setPhase('ending');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const dayEvent = await getDayEvent(gameState.game_id, gameState.day);
-      // Convert DayEvent to GameEvent format
-      const gameEvent: GameEvent = {
-        event_message: dayEvent.description,
-        choices: dayEvent.choices,
-      };
-      setCurrentEvent(gameEvent);
-      updateApiSource();
-      setErrorMessage(null);
-    } catch (error) {
-      console.error('Failed to load event:', error);
-      setErrorMessage('Failed to load the next event. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleChoice = async (choiceIndex: number) => {
+  const handleChoice = async (choiceId: number) => {
     if (!gameState || !currentEvent) return;
 
     try {
       setLoading(true);
 
-      const selectedChoice = currentEvent.choices[choiceIndex];
+      const selectedChoice = currentEvent.choices.find(c => c.id === choiceId);
+      if (!selectedChoice) {
+        throw new Error('Invalid choice');
+      }
+
       const result = await submitChoice(gameState.game_id, selectedChoice.impact);
       updateApiSource();
       setErrorMessage(null);
@@ -116,7 +88,7 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
       });
       
       setStatChanges(changes);
-      setResultText(`You chose: ${result.applied_choice.text}`);
+      setResultText(`You chose: ${selectedChoice.text}`);
       setShowResult(true);
 
       // Determine character image based on status changes
@@ -140,6 +112,8 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
 
       setTimeout(() => {
         setShowResult(false);
+        // Set the next event from the API response
+        setCurrentEvent(result.next_event);
         setGameState(prev => {
           if (!prev) return null;
           
