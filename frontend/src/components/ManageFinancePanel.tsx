@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { PlusCircle, MinusCircle, Trash2, TrendingUp, Wallet } from 'lucide-react';
+import { DailyFinances } from '../lib/api';
 
 interface IncomeItem {
   id: string;
@@ -30,16 +31,18 @@ interface FinanceData {
   savings_account?: SavingsAccount;
 }
 
-export function ManageFinancePanel() {
+interface ManageFinancePanelProps {
+  dailyFinances?: DailyFinances;
+}
+
+export function ManageFinancePanel({ dailyFinances }: ManageFinancePanelProps) {
+  // Use dailyFinances from props or default values
   const [financeData, setFinanceData] = useState<FinanceData>({
-    incomes: [
-      { id: '1', name: 'Allowance', amount: 200 },
-      { id: '2', name: 'Part-time Job', amount: 100 }
+    incomes: dailyFinances?.incomes || [
+      { id: '1', name: 'Allowance', amount: 200 }
     ],
-    expenses: [
-      { id: '1', name: 'Rent', amount: 150 },
-      { id: '2', name: 'Food', amount: 100 },
-      { id: '3', name: 'Subscriptions', amount: 50 }
+    expenses: dailyFinances?.expenses || [
+      { id: '1', name: 'Living Costs', amount: 100 }
     ],
     savings_account: {
       type: 'flexible',
@@ -54,6 +57,17 @@ export function ManageFinancePanel() {
   const [savingsAction, setSavingsAction] = useState({ type: 'add', amount: '' });
   const [showNewSavings, setShowNewSavings] = useState(false);
   const [newSavings, setNewSavings] = useState({ type: 'flexible' as 'fixed' | 'flexible', interest: '' });
+
+  // Update financeData when dailyFinances prop changes (e.g., new day)
+  useEffect(() => {
+    if (dailyFinances) {
+      setFinanceData(prev => ({
+        ...prev,
+        incomes: dailyFinances.incomes,
+        expenses: dailyFinances.expenses,
+      }));
+    }
+  }, [dailyFinances]);
 
   const totalIncome = financeData.incomes.reduce((sum, item) => sum + item.amount, 0);
   const totalExpenses = financeData.expenses.reduce((sum, item) => sum + item.amount, 0);

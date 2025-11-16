@@ -120,12 +120,17 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
 
       setTimeout(() => {
         setShowResult(false);
-        setGameState(prev => prev ? {
-          ...prev,
-          status: result.status,
-          day: result.status.day,
-          time_allocation: prev.max_time_allocation, // Reset time allocation for new day
-        } : null);
+        setGameState(prev => {
+          if (!prev) return null;
+          
+          return {
+            ...prev,
+            status: result.status, // Status is overwritten by API
+            day: result.status.day,
+            time_allocation: prev.max_time_allocation, // Reset time allocation for new day
+            // dailyFinances is kept and accumulated (not reset)
+          };
+        });
       }, 3000);
       
     } catch (error) {
@@ -164,6 +169,35 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
     // Deduct time allocation
     const newTimeAllocation = Math.max(0, gameState.time_allocation - action.time_cost);
 
+    // Update daily finances if there's a money transaction
+    const newDailyFinances = { ...gameState.dailyFinances };
+    if (action.impact.money) {
+      const timestamp = Date.now();
+      if (action.impact.money > 0) {
+        // Income
+        newDailyFinances.incomes = [
+          ...newDailyFinances.incomes,
+          {
+            id: `income_${timestamp}`,
+            name: action.name,
+            amount: action.impact.money,
+            timestamp,
+          },
+        ];
+      } else {
+        // Expense
+        newDailyFinances.expenses = [
+          ...newDailyFinances.expenses,
+          {
+            id: `expense_${timestamp}`,
+            name: action.name,
+            amount: Math.abs(action.impact.money),
+            timestamp,
+          },
+        ];
+      }
+    }
+
     // Show result
     setStatChanges(changes);
     setResultText(`You chose to: ${action.name}. ${action.description} (Time used: ${action.time_cost}h)`);
@@ -175,6 +209,7 @@ export function GameScreen({ gameState, setGameState, setPhase }: GameScreenProp
         ...prev,
         status: newStatus,
         time_allocation: newTimeAllocation,
+        dailyFinances: newDailyFinances,
       } : null);
     }, 3000);
   };
